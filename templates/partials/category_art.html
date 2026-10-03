@@ -1,0 +1,76 @@
+{% comment %}
+Flat illustration for an item category, used in place of product photos.
+Usage: {% include 'partials/category_art.html' with category=item.category %}
+Category keys match Item.Category values; anything unknown falls back to the gift box.
+{% endcomment %}<svg class="category-art" viewBox="0 0 160 160" aria-hidden="true" focusable="false">
+    <ellipse cx="80" cy="138" rx="50" ry="6" fill="#2a1c16" opacity="0.14"/>
+{% if category == 'books' %}
+    <rect x="22" y="106" width="116" height="28" rx="6" fill="#c9443a"/>
+    <rect x="110" y="111" width="22" height="18" rx="2" fill="#fcf5ec"/>
+    <path d="M113 116h16M113 120h16M113 124h16" stroke="#ecd6bf" stroke-width="1.4"/>
+    <rect x="34" y="114" width="40" height="4" rx="2" fill="#a9352c"/>
+    <rect x="30" y="80" width="100" height="26" rx="6" fill="#ffd877"/>
+    <rect x="34" y="85" width="20" height="16" rx="2" fill="#fcf5ec"/>
+    <path d="M37 90h14M37 94h14M37 98h14" stroke="#ecd6bf" stroke-width="1.4"/>
+    <rect x="70" y="90" width="44" height="4" rx="2" fill="#e8b84a"/>
+    <g transform="rotate(-5 82 68)">
+        <rect x="38" y="56" width="88" height="24" rx="6" fill="#f8b7c3"/>
+        <rect x="102" y="60" width="18" height="16" rx="2" fill="#fcf5ec"/>
+        <rect x="46" y="64" width="34" height="4" rx="2" fill="#e48c9c"/>
+    </g>
+    <circle cx="70" cy="42" r="13" fill="#c9443a"/>
+    <path d="M70 30c0-5 2-8 6-9" stroke="#2a1c16" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+    <path d="M73 28c5-5 11-4 13 0-5 3-10 3-13 0z" fill="#7fa86f"/>
+    <circle cx="65" cy="38" r="3" fill="#fff" opacity="0.4"/>
+{% elif category == 'stationery' %}
+    <g transform="rotate(5 82 80)">
+        <rect x="76" y="18" width="12" height="64" rx="2" fill="#fcf5ec"/>
+        <path d="M76 26h5M76 33h7M76 40h5M76 47h7M76 54h5M76 61h7" stroke="#c9443a" stroke-width="1.6"/>
+    </g>
+    <g transform="rotate(-14 66 80)">
+        <rect x="59" y="32" width="13" height="50" fill="#aac9dc"/>
+        <rect x="59" y="32" width="4" height="50" fill="#8db4cb"/>
+        <path d="M59 32h13l-6.5-15z" fill="#fcf5ec"/>
+        <path d="M63.6 21.5h3.8l-1.9-4.5z" fill="#2a1c16"/>
+    </g>
+    <g transform="rotate(12 96 80)">
+        <rect x="89" y="38" width="13" height="44" fill="#f8b7c3"/>
+        <rect x="89" y="38" width="4" height="44" fill="#e898a8"/>
+        <path d="M89 38h13l-6.5-15z" fill="#fcf5ec"/>
+        <path d="M93.6 27.5h3.8l-1.9-4.5z" fill="#2a1c16"/>
+    </g>
+    <rect x="46" y="80" width="68" height="56" rx="12" fill="#c9443a"/>
+    <rect x="42" y="74" width="76" height="14" rx="7" fill="#a9352c"/>
+    <rect x="56" y="96" width="8" height="28" rx="4" fill="#fff" opacity="0.22"/>
+{% elif category == 'daily_essentials' %}
+    <rect x="50" y="30" width="34" height="20" rx="7" fill="#c9443a"/>
+    <rect x="54" y="26" width="26" height="8" rx="4" fill="#a9352c"/>
+    <rect x="42" y="48" width="50" height="88" rx="18" fill="#aac9dc"/>
+    <rect x="42" y="82" width="50" height="24" fill="#ffd877"/>
+    <circle cx="67" cy="94" r="6" fill="#c9443a"/>
+    <rect x="50" y="58" width="7" height="66" rx="3.5" fill="#fff" opacity="0.4"/>
+    <path d="M128 106h4a9 9 0 0 1 0 18h-4" stroke="#fcf5ec" stroke-width="6" fill="none"/>
+    <rect x="98" y="98" width="32" height="38" rx="7" fill="#fcf5ec"/>
+    <rect x="98" y="108" width="32" height="6" fill="#ffd877"/>
+    <path d="M108 90c-3-4 3-6 0-10M118 90c-3-4 3-6 0-10" stroke="#fcf5ec" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.9"/>
+{% elif category == 'clothes' %}
+    <path d="M56 36 72 28c2 9 14 13 16 0l16 8 24 22-14 16-8-7v65H54V67l-8 7-14-16z" fill="#ffd877"/>
+    <path d="M72 28c3 10 13 12 16 0" stroke="#f8b7c3" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <path d="M54 67v-8M106 67v-8" stroke="#e8b84a" stroke-width="3" stroke-linecap="round"/>
+    <rect x="88" y="74" width="14" height="14" rx="3" fill="#f8b7c3"/>
+    <path d="M70 120h20" stroke="#e8b84a" stroke-width="3" stroke-linecap="round"/>
+    <rect x="60" y="48" width="6" height="74" rx="3" fill="#fff" opacity="0.3"/>
+{% else %}
+    <rect x="42" y="78" width="76" height="58" rx="8" fill="#c9443a"/>
+    <rect x="34" y="62" width="92" height="22" rx="6" fill="#d9584d"/>
+    <rect x="74" y="62" width="12" height="74" fill="#ffd877"/>
+    <path d="M80 62c-10-16-30-18-30-6 0 8 18 8 30 6z" fill="#ffd877"/>
+    <path d="M80 62c10-16 30-18 30-6 0 8-18 8-30 6z" fill="#f2c45e"/>
+    <circle cx="80" cy="61" r="6" fill="#e8b84a"/>
+    <g transform="rotate(14 116 112)">
+        <rect x="104" y="100" width="28" height="18" rx="4" fill="#f8b7c3"/>
+        <circle cx="110" cy="109" r="2.5" fill="#c9443a"/>
+    </g>
+    <rect x="50" y="90" width="7" height="38" rx="3.5" fill="#fff" opacity="0.22"/>
+{% endif %}
+</svg>

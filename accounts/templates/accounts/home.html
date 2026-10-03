@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}SJ Passdown — Free items from your seniors{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/pages/home.css' %}">
+{% endblock %}
+
+{% block body_class %}page-home{% endblock %}
+
+{% block content %}
+<section class="hero" aria-labelledby="hero-title">
+    <div class="hero__copy">
+        <p class="eyebrow">{% include 'partials/icon.html' with name='sparkle' %} HCIBS SJ Passdown</p>
+        <h1 class="display hero__title" id="hero-title">Pass it down, pass it&nbsp;on</h1>
+        <p class="hero__lead">Browse and claim items generously passed down by your seniors — textbooks, stationery, uniforms and everyday essentials. Always free, always from students like you.</p>
+
+        <div class="hero__search" role="search">
+            <label class="visually-hidden" for="home-search">Search available items</label>
+            <div class="search-pill">
+                {% include 'partials/icon.html' with name='search' %}
+                <input class="home-search-input" id="home-search" type="search" placeholder="Search available items" autocomplete="off">
+            </div>
+            <button class="btn btn--soft menu-button" type="button">
+                {% include 'partials/icon.html' with name='filter' %}
+                Filter
+            </button>
+        </div>
+
+        <div class="hero__actions">
+            <a class="btn btn--primary post-button" href="{% url 'item_create' %}">+ Post</a>
+            <span class="hero__hint">Got something you've outgrown? Pass it on.</span>
+        </div>
+    </div>
+
+    <div class="hero__art" aria-hidden="true">
+        <svg viewBox="0 0 360 260" class="hero__svg" focusable="false">
+            <ellipse cx="180" cy="238" rx="120" ry="9" fill="#2a1c16" opacity="0.12"/>
+            <g transform="rotate(-3 180 130)">
+                <rect x="196" y="22" width="34" height="22" rx="5" fill="#f8b7c3"/>
+                <rect x="94" y="34" width="168" height="150" rx="10" fill="#f8b7c3"/>
+                <path d="M118 60h92M118 72h120M118 84h70" stroke="#e48c9c" stroke-width="3" stroke-linecap="round"/>
+                <rect x="82" y="108" width="190" height="120" rx="10" fill="#c9443a"/>
+                <rect x="82" y="108" width="190" height="14" rx="7" fill="#a9352c" opacity="0.5"/>
+            </g>
+            <g transform="rotate(-9 262 186)">
+                <rect x="196" y="150" width="136" height="80" rx="12" fill="#fcf5ec"/>
+                <rect x="196" y="150" width="136" height="80" rx="12" fill="none" stroke="#ecd6bf" stroke-width="2"/>
+                <text x="212" y="196" class="hero__tag-text">Free to claim</text>
+                <path d="M300 168c-4-6-12-2-8 4l8 7 8-7c4-6-4-10-8-4z" fill="#c9443a"/>
+                <circle cx="216" cy="168" r="6" fill="#ffd877"/>
+                <circle cx="230" cy="214" r="5" fill="#aac9dc"/>
+                <circle cx="312" cy="212" r="6" fill="#f8b7c3"/>
+            </g>
+            <circle cx="64" cy="70" r="9" fill="#ffd877"/>
+            <circle cx="300" cy="52" r="7" fill="#aac9dc"/>
+            <circle cx="46" cy="190" r="6" fill="#c9443a"/>
+        </svg>
+    </div>
+</section>
+
+<section class="home-info" aria-label="About SJ Passdown">
+    {% include 'partials/info_pills.html' %}
+</section>
+
+<section class="listing" aria-labelledby="listing-title">
+    <div class="listing__head">
+        <h2 class="section-title" id="listing-title">Fresh passdowns</h2>
+        {% with count=items|length %}
+        {% if count %}<span class="listing__count">{{ count }} item{{ count|pluralize }} available</span>{% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="posts">
+        {% for item in items %}
+        {% include 'partials/item_card.html' %}
+        {% empty %}
+        <div class="empty-message">
+            <div class="empty-message__art" aria-hidden="true">
+                {% include 'partials/category_art.html' with category='other' %}
+            </div>
+            <h3 class="empty-message__title">No posts yet.</h3>
+            <p>Click the <strong>+ Post</strong> button to pass down the first item!</p>
+            <a class="btn btn--primary" href="{% url 'item_create' %}">+ Post an item</a>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

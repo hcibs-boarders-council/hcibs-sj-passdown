@@ -1,0 +1,438 @@
+/* ==========================================================================
+   SJ Passdown — base styles
+   Design tokens, reset, typography, layout frame, buttons and form controls.
+   ========================================================================== */
+
+:root {
+    /* Palette (taken from the reference design) */
+    --cream: #f7ecdc;          /* page background */
+    --paper: #fcf5ec;          /* card surfaces */
+    --paper-2: #f3e3cf;        /* subtle surface / dividers */
+    --red: #c9443a;            /* primary brand */
+    --red-dark: #a9352c;
+    --red-line: rgba(201, 68, 58, 0.45);
+    --pink: #f8b7c3;
+    --pink-soft: #fbd3da;
+    --blue: #aac9dc;
+    --blue-soft: #cfe0ea;
+    --yellow: #ffd877;
+    --yellow-soft: #ffe7a8;
+    --sand: #ecd6bf;
+    --ink: #2a1c16;
+    --ink-soft: #5b4740;
+    --muted: #94796d;
+
+    /* Type */
+    --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    /* Shape & spacing */
+    --radius-sm: 10px;
+    --radius: 16px;
+    --radius-lg: 24px;
+    --radius-xl: 30px;
+    --pill: 999px;
+    --gutter: clamp(14px, 2.4vw, 32px);
+    --section-gap: clamp(48px, 6vw, 88px);
+
+    --focus: 0 0 0 3px rgba(201, 68, 58, 0.28);
+    --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Reset ------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+}
+
+img,
+svg {
+    display: block;
+    max-width: 100%;
+}
+
+h1, h2, h3, h4, p, ul, ol, figure {
+    margin: 0;
+}
+
+ul[class],
+ol[class] {
+    padding: 0;
+    list-style: none;
+}
+
+a {
+    color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+:focus-visible {
+    outline: none;
+    box-shadow: var(--focus);
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* Typography -------------------------------------------------------------- */
+
+.display,
+.section-title {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 600;
+    color: var(--red);
+    letter-spacing: -0.01em;
+    line-height: 1.05;
+    font-variation-settings: "opsz" 144;
+}
+
+.display {
+    font-size: clamp(2.2rem, 3.6vw, 3.4rem);
+}
+
+.section-title {
+    font-size: clamp(2rem, 3vw, 2.9rem);
+}
+
+.serif {
+    font-family: var(--font-display);
+    font-weight: 500;
+}
+
+.eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--red);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+/* Page frame (the rounded outlined canvas from the reference) -------------- */
+
+.page-frame {
+    width: min(100% - 2 * var(--gutter), 1440px);
+    margin: var(--gutter) auto;
+    padding: 18px clamp(14px, 2.2vw, 30px) clamp(14px, 2.2vw, 30px);
+    border: 1px solid var(--red-line);
+    border-radius: var(--radius-xl);
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 2 * var(--gutter));
+}
+
+.page-main {
+    flex: 1;
+    padding-top: clamp(20px, 3vw, 36px);
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 18px;
+    color: var(--red);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.back-link .icon {
+    width: 15px;
+    height: 15px;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* Buttons ----------------------------------------------------------------- */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 22px;
+    border: 1px solid transparent;
+    border-radius: var(--pill);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.2s var(--ease), color 0.2s var(--ease),
+        border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn--primary {
+    background: var(--red);
+    color: #fff;
+}
+
+.btn--primary:hover {
+    background: var(--red-dark);
+}
+
+.btn--ghost {
+    background: transparent;
+    border-color: var(--red-line);
+    color: var(--red);
+}
+
+.btn--ghost:hover {
+    background: var(--pink-soft);
+    border-color: var(--red);
+}
+
+.btn--soft {
+    background: var(--paper);
+    color: var(--red);
+}
+
+.btn--soft:hover {
+    background: #fff;
+}
+
+.btn--sm {
+    min-height: 34px;
+    padding: 0 16px;
+    font-size: 13px;
+}
+
+.btn--block {
+    width: 100%;
+}
+
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--red);
+    color: #fff;
+    text-decoration: none;
+    transition: background-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+.icon-btn:hover {
+    background: var(--red-dark);
+}
+
+.icon-btn--soft {
+    background: var(--pink);
+    color: var(--red);
+}
+
+.icon-btn--soft:hover {
+    background: var(--pink-soft);
+}
+
+.icon-btn--sm {
+    width: 30px;
+    height: 30px;
+}
+
+.icon-btn--sm .icon {
+    width: 15px;
+    height: 15px;
+}
+
+/* Form controls ----------------------------------------------------------- */
+
+.field {
+    display: grid;
+    gap: 6px;
+}
+
+.field label,
+.field__label {
+    color: var(--red);
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.input,
+.field input,
+.field select,
+.field textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 11px 18px;
+    border: 1px solid var(--red-line);
+    border-radius: var(--pill);
+    background: #fff;
+    color: var(--ink);
+    font-size: 15px;
+    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.field textarea {
+    min-height: 140px;
+    border-radius: var(--radius);
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.field select {
+    appearance: none;
+    padding-right: 44px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9443a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 16px;
+    cursor: pointer;
+}
+
+.input::placeholder,
+.field input::placeholder,
+.field textarea::placeholder {
+    color: #b39a8e;
+}
+
+.input:focus,
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+    outline: none;
+    border-color: var(--red);
+    box-shadow: var(--focus);
+}
+
+.field--error input,
+.field--error select,
+.field--error textarea {
+    border-color: var(--red);
+    background: #fff7f5;
+}
+
+.field__help {
+    color: var(--muted);
+    font-size: 12.5px;
+}
+
+.field__errors,
+.field .errorlist {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--red-dark);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.form-errors {
+    margin: 0 0 18px;
+    padding: 12px 16px 12px 40px;
+    border: 1px solid var(--red-line);
+    border-radius: var(--radius);
+    background: var(--pink-soft);
+    color: var(--red-dark);
+    font-size: 14px;
+    list-style: none;
+    position: relative;
+}
+
+.form-errors::before {
+    content: "!";
+    position: absolute;
+    top: 12px;
+    left: 14px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--red);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+}
+
+.form-errors li + li {
+    margin-top: 4px;
+}
+
+/* Chips ------------------------------------------------------------------- */
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 11px;
+    border-radius: var(--pill);
+    background: var(--pink);
+    color: var(--red);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+
+/* Motion preferences ------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition: none !important;
+        animation: none !important;
+    }
+}

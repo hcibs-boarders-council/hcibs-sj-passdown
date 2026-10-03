@@ -1,0 +1,60 @@
+{% extends 'layouts/form_page.html' %}
+
+{% block title %}Sign up — SJ Passdown{% endblock %}
+
+{% block body_class %}page-auth page-register{% endblock %}
+
+{% block showcase_art %}{% include 'partials/category_art.html' with category='clothes' %}{% endblock %}
+{% block thumb_b %}{% include 'partials/category_art.html' with category='daily_essentials' %}{% endblock %}
+
+{% block form_title %}Create an Account{% endblock %}
+{% block form_tag %}Join in{% endblock %}
+{% block form_subtitle %}Join SJ Passdown to pass on what you've outgrown and find what you need next.{% endblock %}
+{% block form_section %}Your details{% endblock %}
+
+{% block form_body %}
+{% if errors %}
+<ul class="form-errors" role="alert">
+    {% for error in errors %}
+    <li>{{ error }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<form method="post" class="form-stack" novalidate>
+    {% csrf_token %}
+
+    <div class="field-row">
+        <div class="field">
+            <label for="id_username">Username</label>
+            <input type="text" id="id_username" name="username" placeholder="Pick a username" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false">
+        </div>
+
+        <div class="field">
+            <label for="id_email">Email</label>
+            <input type="email" id="id_email" name="email" placeholder="you@example.com" value="{{ email }}" autocomplete="email">
+        </div>
+    </div>
+
+    <div class="field-row">
+        <div class="field">
+            <label for="id_password">Password</label>
+            <input type="password" id="id_password" name="password" placeholder="At least 8 characters" autocomplete="new-password">
+        </div>
+
+        <div class="field">
+            <label for="id_password_confirmation">Confirm Password</label>
+            <input type="password" id="id_password_confirmation" name="password_confirmation" placeholder="Type it again" autocomplete="new-password">
+        </div>
+    </div>
+
+    <button class="btn btn--primary btn--block form-stack__submit" type="submit">Sign Up</button>
+</form>
+{% endblock %}
+
+{% block form_footer %}
+<p class="form-card__switch">
+    Already have an account?
+    <a href="{% url 'login' %}">Log In</a>
+</p>
+{% endblock %}

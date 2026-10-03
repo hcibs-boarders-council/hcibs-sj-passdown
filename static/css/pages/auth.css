@@ -1,0 +1,227 @@
+/* ==========================================================================
+   Form pages — Login, Register, Post Item.
+   Mirrors the reference's product-detail block: showcase + pills | info card.
+   ========================================================================== */
+
+.form-page__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: clamp(12px, 1.4vw, 18px);
+    align-items: start;
+}
+
+.form-page__visual {
+    display: grid;
+    gap: 12px;
+}
+
+/* Showcase panel ---------------------------------------------------------- */
+
+.showcase {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: clamp(320px, 34vw, 470px);
+    padding: 28px 28px 28px 84px;
+    border-radius: var(--radius);
+    background: var(--paper);
+}
+
+.showcase__thumbs {
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    display: grid;
+    gap: 8px;
+}
+
+.showcase__thumb {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    padding: 5px;
+    border-radius: var(--radius-sm);
+    background: var(--sand);
+}
+
+.showcase__thumb:first-child {
+    outline: 1.5px solid var(--red);
+    outline-offset: 2px;
+}
+
+.showcase__thumb--blue { background: var(--blue); }
+.showcase__thumb--red { background: var(--red); }
+
+.showcase__dots {
+    position: absolute;
+    left: 31px;
+    bottom: 50%;
+    transform: translateY(50%);
+    display: grid;
+    gap: 7px;
+}
+
+.showcase__dots span {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--red);
+}
+
+.showcase__dots span:nth-child(2) { background: var(--blue); }
+.showcase__dots span:nth-child(3) { background: var(--yellow); }
+
+.showcase__art {
+    width: min(62%, 300px);
+}
+
+/* Form card --------------------------------------------------------------- */
+
+.form-card {
+    padding: clamp(22px, 2.6vw, 36px);
+    border-radius: var(--radius);
+    background: var(--paper);
+}
+
+.form-card__eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    color: var(--red);
+    font-size: 12.5px;
+    font-weight: 500;
+}
+
+.form-card__eyebrow .icon {
+    width: 15px;
+    height: 15px;
+}
+
+.form-card__titlebar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.form-card__title {
+    color: var(--red);
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3vw, 2.8rem);
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    line-height: 1.05;
+    font-variation-settings: "opsz" 144;
+}
+
+.form-card__tag {
+    flex: none;
+    color: var(--red);
+    font-family: var(--font-display);
+    font-size: clamp(1.2rem, 1.8vw, 1.6rem);
+    font-style: italic;
+    font-weight: 500;
+}
+
+.form-card__subtitle {
+    margin-top: 6px;
+    color: var(--red);
+    font-size: 13.5px;
+}
+
+.form-card__section {
+    margin: clamp(22px, 2.6vw, 30px) 0 14px;
+    color: var(--red);
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 500;
+}
+
+.form-stack {
+    display: grid;
+    gap: 14px;
+}
+
+.field-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.form-stack__submit {
+    margin-top: 8px;
+    min-height: 46px;
+    font-size: 15px;
+}
+
+.field__counter {
+    justify-self: end;
+}
+
+.form-card__switch {
+    margin-top: 18px;
+    color: var(--ink-soft);
+    font-size: 14px;
+    text-align: center;
+}
+
+.form-card__switch a {
+    color: var(--red);
+    font-weight: 600;
+    text-underline-offset: 3px;
+}
+
+.form-card__switch a:hover {
+    color: var(--red-dark);
+}
+
+/* Responsive -------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+    .form-page__grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Form first on small screens, illustration + pills below it. */
+    .form-card {
+        order: -1;
+    }
+
+    .showcase {
+        min-height: 260px;
+    }
+}
+
+@media (max-width: 560px) {
+    .field-row {
+        grid-template-columns: 1fr;
+    }
+
+    .showcase {
+        min-height: 230px;
+        padding: 20px 20px 20px 72px;
+    }
+
+    .showcase__thumbs {
+        top: 14px;
+        left: 14px;
+    }
+
+    .showcase__thumb {
+        width: 40px;
+        height: 40px;
+    }
+
+    .showcase__dots {
+        left: 24px;
+        bottom: 18px;
+        transform: none;
+    }
+
+    .showcase__dots span {
+        width: 16px;
+        height: 16px;
+    }
+}

@@ -1,0 +1,240 @@
+/* ==========================================================================
+   Home page — hero (the reference's yellow "gift inside" block) + item grid.
+   ========================================================================== */
+
+/* Hero -------------------------------------------------------------------- */
+
+.hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: clamp(20px, 3vw, 40px);
+    padding: clamp(14px, 1.4vw, 18px);
+    border-radius: var(--radius-lg);
+    background: var(--yellow);
+}
+
+.hero__copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 18px;
+    padding: clamp(16px, 2.6vw, 40px) clamp(6px, 1.6vw, 24px);
+}
+
+.hero__title {
+    max-width: 12ch;
+}
+
+.hero__lead {
+    max-width: 46ch;
+    color: var(--ink);
+    font-size: 15px;
+}
+
+.hero__search {
+    display: flex;
+    gap: 8px;
+    max-width: 520px;
+    margin-top: 6px;
+}
+
+.search-pill {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.search-pill .icon {
+    position: absolute;
+    top: 50%;
+    left: 16px;
+    transform: translateY(-50%);
+    color: var(--red);
+    pointer-events: none;
+}
+
+.home-search-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 18px 0 44px;
+    border: 1px solid transparent;
+    border-radius: var(--pill);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 14px;
+}
+
+.home-search-input::placeholder {
+    color: #b39a8e;
+}
+
+.home-search-input:focus {
+    outline: none;
+    border-color: var(--red);
+    box-shadow: var(--focus);
+}
+
+.hero__search .btn {
+    min-height: 44px;
+}
+
+.hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+}
+
+.hero__hint {
+    color: var(--ink-soft);
+    font-size: 13px;
+}
+
+.hero__art {
+    display: grid;
+    place-items: center;
+    min-height: 300px;
+    padding: clamp(16px, 3vw, 40px);
+    border-radius: var(--radius);
+    background: var(--paper);
+}
+
+.hero__svg {
+    width: min(100%, 440px);
+    height: auto;
+}
+
+.hero__tag-text {
+    fill: var(--red);
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-style: italic;
+    font-weight: 600;
+}
+
+/* Info pills row ---------------------------------------------------------- */
+
+.home-info {
+    margin-top: 14px;
+}
+
+.home-info .info-pills {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+}
+
+/* Listing ----------------------------------------------------------------- */
+
+.listing {
+    margin-top: var(--section-gap);
+}
+
+.listing__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+    margin-bottom: clamp(18px, 2.4vw, 28px);
+}
+
+.listing__count {
+    padding: 6px 14px;
+    border: 1px solid var(--red-line);
+    border-radius: var(--pill);
+    color: var(--red);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.posts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(12px, 1.4vw, 18px);
+}
+
+/* Empty state ------------------------------------------------------------- */
+
+.empty-message {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: clamp(32px, 5vw, 56px) 24px;
+    border: 1px dashed var(--red-line);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+    color: var(--ink-soft);
+    text-align: center;
+}
+
+.empty-message__art {
+    width: 130px;
+    margin-bottom: 4px;
+}
+
+.empty-message__title {
+    color: var(--red);
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-style: italic;
+    font-weight: 600;
+}
+
+.empty-message .btn {
+    margin-top: 10px;
+}
+
+/* Responsive -------------------------------------------------------------- */
+
+@media (max-width: 1200px) {
+    .posts {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .hero {
+        grid-template-columns: 1fr;
+    }
+
+    .hero__art {
+        min-height: 0;
+        order: 2;
+    }
+
+    .posts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .home-info .info-pills {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 560px) {
+    .hero__copy {
+        padding: 12px 6px 4px;
+        gap: 14px;
+    }
+
+    .hero__search .menu-button {
+        padding: 0 14px;
+    }
+
+    .hero__actions .btn {
+        width: 100%;
+    }
+
+    .hero__hint {
+        width: 100%;
+        text-align: center;
+    }
+
+    .posts {
+        grid-template-columns: 1fr;
+    }
+}

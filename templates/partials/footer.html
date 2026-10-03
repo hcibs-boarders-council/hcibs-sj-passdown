@@ -1,0 +1,42 @@
+<footer class="site-footer">
+    <div class="site-footer__top">
+        <a class="site-footer__brand" href="{% url 'home' %}">SJ Passdown</a>
+
+        <div class="site-footer__cols">
+            <div class="site-footer__col">
+                <h2 class="site-footer__heading">Explore</h2>
+                <ul>
+                    <li><a href="{% url 'home' %}">Home</a></li>
+                    <li><a href="{% url 'item_create' %}">Post an item</a></li>
+                    <li><span class="is-soon">Our Vision</span></li>
+                </ul>
+            </div>
+            <div class="site-footer__col">
+                <h2 class="site-footer__heading">Categories</h2>
+                <ul>
+                    <li>Stationery</li>
+                    <li>Books</li>
+                    <li>Daily Essentials</li>
+                    <li>Clothes</li>
+                </ul>
+            </div>
+            <div class="site-footer__col">
+                <h2 class="site-footer__heading">Community</h2>
+                <ul>
+                    <li><span class="is-soon">Guidelines</span></li>
+                    <li><span class="is-soon">Chat</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="site-footer__note">
+            <p class="site-footer__tagline">Pass it down. Pass it on.</p>
+            <p>Everything here is free — handed from HCIBS seniors to the juniors who need it next.</p>
+        </div>
+    </div>
+
+    <div class="site-footer__bottom">
+        <span>&copy; {% now "Y" %} SJ Passdown</span>
+        <span>Made by students, for students</span>
+    </div>
+</footer>

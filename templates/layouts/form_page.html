@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% load static %}
+{% comment %}
+Shared two-column layout for Login, Register and Post Item, modelled on the
+reference's product-detail section: illustration panel + info pills on the left,
+form card on the right.
+
+Blocks: showcase_art, thumb_a, thumb_b, form_eyebrow, form_title, form_tag,
+        form_subtitle, form_section, form_body, form_footer
+{% endcomment %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/pages/auth.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="form-page">
+    <a class="back-link" href="{% url 'home' %}">{% include 'partials/icon.html' with name='chevron-left' %}Back to Home</a>
+
+    <div class="form-page__grid">
+        <div class="form-page__visual">
+            <div class="showcase">
+                <div class="showcase__thumbs" aria-hidden="true">
+                    <span class="showcase__thumb showcase__thumb--blue">{% block thumb_a %}{% include 'partials/category_art.html' with category='books' %}{% endblock %}</span>
+                    <span class="showcase__thumb showcase__thumb--red">{% block thumb_b %}{% include 'partials/category_art.html' with category='clothes' %}{% endblock %}</span>
+                </div>
+                <div class="showcase__dots" aria-hidden="true">
+                    <span></span><span></span><span></span>
+                </div>
+                <div class="showcase__art" aria-hidden="true">
+                    {% block showcase_art %}{% endblock %}
+                </div>
+            </div>
+            {% include 'partials/info_pills.html' %}
+        </div>
+
+        <section class="form-card" aria-labelledby="form-title">
+            <p class="form-card__eyebrow">{% include 'partials/icon.html' with name='sparkle' %}{% block form_eyebrow %}Free for every HCIBS student{% endblock %}</p>
+
+            <div class="form-card__titlebar">
+                <h1 class="form-card__title" id="form-title">{% block form_title %}{% endblock %}</h1>
+                <span class="form-card__tag">{% block form_tag %}Free{% endblock %}</span>
+            </div>
+            <p class="form-card__subtitle">{% block form_subtitle %}{% endblock %}</p>
+
+            <h2 class="form-card__section">{% block form_section %}Your details{% endblock %}</h2>
+
+            {% block form_body %}{% endblock %}
+
+            {% block form_footer %}{% endblock %}
+        </section>
+    </div>
+</div>
+{% endblock %}

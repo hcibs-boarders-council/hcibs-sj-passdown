@@ -1,0 +1,30 @@
+{% comment %}
+Accordion pills (pink / blue) explaining how SJ Passdown works.
+Native <details>, so they work without JavaScript.
+{% endcomment %}<div class="info-pills">
+    <details class="info-pill">
+        <summary>
+            Community guidelines
+            <span class="info-pill__icon">{% include 'partials/icon.html' with name='plus' %}</span>
+        </summary>
+        <div class="info-pill__body">
+            <ul>
+                <li><strong>Keep it private.</strong> Don't post or share private information about yourself or other people.</li>
+                <li><strong>Keep it kind.</strong> No profanities, offensive material or other inappropriate content.</li>
+            </ul>
+        </div>
+    </details>
+    <details class="info-pill info-pill--blue">
+        <summary>
+            How passing down works
+            <span class="info-pill__icon">{% include 'partials/icon.html' with name='plus' %}</span>
+        </summary>
+        <div class="info-pill__body">
+            <ol>
+                <li><strong>Post</strong> something you no longer need — books, stationery, uniforms and more.</li>
+                <li><strong>Juniors browse</strong> the latest passdowns on the home page.</li>
+                <li><strong>Hand it over</strong> in person. Everything on SJ Passdown is free.</li>
+            </ol>
+        </div>
+    </details>
+</div>

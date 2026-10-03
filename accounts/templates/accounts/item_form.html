@@ -1,0 +1,48 @@
+{% extends 'layouts/form_page.html' %}
+{% load static %}
+
+{% block title %}Post an Item — SJ Passdown{% endblock %}
+
+{% block body_class %}page-auth page-post{% endblock %}
+
+{% block showcase_art %}{% include 'partials/category_art.html' with category='other' %}{% endblock %}
+{% block thumb_a %}{% include 'partials/category_art.html' with category='books' %}{% endblock %}
+{% block thumb_b %}{% include 'partials/category_art.html' with category='stationery' %}{% endblock %}
+
+{% block form_eyebrow %}Passing down as {{ user.username }}{% endblock %}
+{% block form_title %}Post an Item{% endblock %}
+{% block form_tag %}Free{% endblock %}
+{% block form_subtitle %}Give something you no longer need a second life with a junior.{% endblock %}
+{% block form_section %}Item details{% endblock %}
+
+{% block form_body %}
+{% if form.errors %}
+<ul class="form-errors" role="alert">
+    {% for error in form.non_field_errors %}
+    <li>{{ error }}</li>
+    {% empty %}
+    <li>Please fix the highlighted fields below.</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<form method="post" class="form-stack" novalidate data-item-form>
+    {% csrf_token %}
+
+    {% for field in form %}
+    <div class="field{% if field.errors %} field--error{% endif %}">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<p class="field__help">{{ field.help_text }}</p>{% endif %}
+        {% if field.name == 'description' %}<p class="field__help field__counter" data-counter-for="{{ field.id_for_label }}" hidden></p>{% endif %}
+        {{ field.errors }}
+    </div>
+    {% endfor %}
+
+    <button class="btn btn--primary btn--block form-stack__submit" type="submit">Post Item</button>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/item_form.js' %}" defer></script>
+{% endblock %}

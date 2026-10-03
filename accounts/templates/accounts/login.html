@@ -1,0 +1,46 @@
+{% extends 'layouts/form_page.html' %}
+
+{% block title %}Log in — SJ Passdown{% endblock %}
+
+{% block body_class %}page-auth page-login{% endblock %}
+
+{% block showcase_art %}{% include 'partials/category_art.html' with category='books' %}{% endblock %}
+{% block thumb_a %}{% include 'partials/category_art.html' with category='stationery' %}{% endblock %}
+
+{% block form_title %}Welcome!{% endblock %}
+{% block form_tag %}Hi again{% endblock %}
+{% block form_subtitle %}Log in to start browsing free passdowns from your seniors.{% endblock %}
+{% block form_section %}Log in to your account{% endblock %}
+
+{% block form_body %}
+{% if errors %}
+<ul class="form-errors" role="alert">
+    {% for error in errors %}
+    <li>{{ error }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<form method="post" class="form-stack" novalidate>
+    {% csrf_token %}
+
+    <div class="field">
+        <label for="id_username">Username</label>
+        <input type="text" id="id_username" name="username" placeholder="Your username" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false">
+    </div>
+
+    <div class="field">
+        <label for="id_password">Password</label>
+        <input type="password" id="id_password" name="password" placeholder="Your password" autocomplete="current-password">
+    </div>
+
+    <button class="btn btn--primary btn--block form-stack__submit" type="submit">Log In</button>
+</form>
+{% endblock %}
+
+{% block form_footer %}
+<p class="form-card__switch">
+    Don't have an account?
+    <a href="{% url 'register' %}">Sign Up</a>
+</p>
+{% endblock %}
