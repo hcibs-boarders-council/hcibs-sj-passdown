@@ -668,3 +668,15 @@
         flex-direction: column;
     }
 }
+
+.site-brand__logo {
+    display: block !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    object-fit: contain !important;
+    flex: 0 0 32px !important;
+}

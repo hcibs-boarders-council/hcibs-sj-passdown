@@ -1,4 +1,6 @@
+{% load static %}
 {% with current=request.resolver_match.url_name %}
+
 <header class="site-nav" data-nav>
     <button class="icon-btn site-nav__toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-nav-links" data-nav-toggle>
         <span class="site-nav__toggle-open">{% include 'partials/icon.html' with name='menu' %}</span>
@@ -6,56 +8,81 @@
     </button>
 
     <a class="site-brand" href="{% url 'home' %}" aria-label="SJ Passdown home">
-        <span class="site-brand__mark" aria-hidden="true">SJ</span>
+        <img
+            class="site-brand__logo"
+            src="{% static 'img/logo.jpeg' %}"
+            alt="SJ Passdown"
+        >
         <span class="site-brand__name">SJ Passdown</span>
     </a>
 
-    <nav class="site-nav__links" id="site-nav-links" aria-label="Main">
-        <a class="nav-pill{% if current == 'home' %} is-active{% endif %}" href="{% url 'home' %}"{% if current == 'home' %} aria-current="page"{% endif %}>Home</a>
-        {% if user.is_authenticated %}
-        <a class="nav-pill{% if current == 'item_create' %} is-active{% endif %}" href="{% url 'item_create' %}"{% if current == 'item_create' %} aria-current="page"{% endif %}>Post an item</a>
-        <button class="nav-pill site-nav-button" type="button">Our Vision</button>
-        <button class="nav-pill site-nav-button" type="button">Chat</button>
-        {% else %}
-        <button class="nav-pill site-nav-button" type="button">Our Vision</button>
-        {% endif %}
-    </nav>
+<nav class="site-nav__links" id="site-nav-links" aria-label="Main">
+    <a class="nav-pill{% if current == 'home' %} is-active{% endif %}" href="{% url 'home' %}"{% if current == 'home' %} aria-current="page"{% endif %}>Home</a>
 
-    <div class="site-nav__actions">
-        <button class="icon-btn icon-btn--soft site-nav__search" type="button" aria-label="Search (coming soon)">
-            {% include 'partials/icon.html' with name='search' %}
-        </button>
+    {% if user.is_authenticated %}
+    <a class="nav-pill{% if current == 'item_create' %} is-active{% endif %}" href="{% url 'item_create' %}"{% if current == 'item_create' %} aria-current="page"{% endif %}>Post an item</a>
 
-        {% if user.is_authenticated %}
-        <a class="icon-btn icon-btn--soft" href="{% url 'item_create' %}" aria-label="Post an item">
-            {% include 'partials/icon.html' with name='plus' %}
-        </a>
+    <a class="nav-pill{% if current == 'our_vision' %} is-active{% endif %}" href="{% url 'our_vision' %}"{% if current == 'our_vision' %} aria-current="page"{% endif %}>Our Vision</a>
 
-        <details class="profile-menu" data-profile-menu>
-            <summary class="profile-toggle" aria-label="Open profile menu">
-                <span class="avatar">{{ user.username|first|upper }}</span>
-            </summary>
-            <div class="profile-dropdown">
-                <div class="profile-dropdown__head">
-                    <span class="avatar avatar--lg">{{ user.username|first|upper }}</span>
-                    <div>
-                        <p class="profile-dropdown__name">{{ user.username }}</p>
-                        <p class="profile-dropdown__meta">HCIBS student</p>
-                    </div>
+    <button class="nav-pill site-nav-button" type="button">Chat</button>
+    {% else %}
+    <a class="nav-pill{% if current == 'our_vision' %} is-active{% endif %}" href="{% url 'our_vision' %}"{% if current == 'our_vision' %} aria-current="page"{% endif %}>Our Vision</a>
+    {% endif %}
+</nav>
+
+<div class="site-nav__actions">
+    <button class="icon-btn icon-btn--soft site-nav__search" type="button" aria-label="Search (coming soon)">
+        {% include 'partials/icon.html' with name='search' %}
+    </button>
+
+    {% if user.is_authenticated %}
+    <a class="icon-btn icon-btn--soft" href="{% url 'item_create' %}" aria-label="Post an item">
+        {% include 'partials/icon.html' with name='plus' %}
+    </a>
+
+    <details class="profile-menu" data-profile-menu>
+        <summary class="profile-toggle" aria-label="Open profile menu">
+            <span class="avatar">{{ user.username|first|upper }}</span>
+        </summary>
+
+        <div class="profile-dropdown">
+            <div class="profile-dropdown__head">
+                <span class="avatar avatar--lg">{{ user.username|first|upper }}</span>
+                <div>
+                    <p class="profile-dropdown__name">{{ user.username }}</p>
+                    <p class="profile-dropdown__meta">HCIBS student</p>
                 </div>
-                <button type="button" class="profile-dropdown__item">{% include 'partials/icon.html' with name='user' %}Account Details</button>
-                <button type="button" class="profile-dropdown__item">{% include 'partials/icon.html' with name='grid' %}My Posts</button>
-                <button type="button" class="profile-dropdown__item">{% include 'partials/icon.html' with name='clock' %}My History</button>
-                <form method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button type="submit" class="profile-dropdown__item profile-dropdown__item--danger">{% include 'partials/icon.html' with name='logout' %}Logout</button>
-                </form>
             </div>
-        </details>
-        {% else %}
-        <a class="btn btn--ghost btn--sm" href="{% url 'login' %}">Login</a>
-        <a class="btn btn--primary btn--sm" href="{% url 'register' %}">Register</a>
-        {% endif %}
-    </div>
+
+            <button type="button" class="profile-dropdown__item">
+                {% include 'partials/icon.html' with name='user' %}
+                Account Details
+            </button>
+
+            <button type="button" class="profile-dropdown__item">
+                {% include 'partials/icon.html' with name='grid' %}
+                My Posts
+            </button>
+
+            <button type="button" class="profile-dropdown__item">
+                {% include 'partials/icon.html' with name='clock' %}
+                My History
+            </button>
+
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="profile-dropdown__item profile-dropdown__item--danger">
+                    {% include 'partials/icon.html' with name='logout' %}
+                    Logout
+                </button>
+            </form>
+        </div>
+    </details>
+    {% else %}
+    <a class="btn btn--ghost btn--sm" href="{% url 'login' %}">Login</a>
+    <a class="btn btn--primary btn--sm" href="{% url 'register' %}">Register</a>
+    {% endif %}
+</div>
+
 </header>
 {% endwith %}

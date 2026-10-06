@@ -13,14 +13,24 @@ from .models import Item
 
 
 def home(request):
+
+    query = request.GET.get('q', '').strip()
+
     items = (
         Item.objects
         .filter(status=Item.Status.AVAILABLE)
         .select_related('owner')
         .order_by('-created_at')
     )
-    return render(request, 'accounts/home.html', {'items': items})
 
+    if query:
+        items = items.filter(title__icontains=query) | items.filter(description__icontains=query)
+
+    return render(request, 'accounts/home.html', {'items': items, 'query': query})
+
+
+def our_vision(request):
+    return render(request, 'accounts/our_vision.html')
 
 def login(request):
     if request.method == 'POST':
