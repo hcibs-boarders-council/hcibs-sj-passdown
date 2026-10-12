@@ -37,9 +37,31 @@
 </nav>
 
 <div class="site-nav__actions">
-    <button class="icon-btn icon-btn--soft site-nav__search" type="button" aria-label="Search (coming soon)">
-        {% include 'partials/icon.html' with name='search' %}
-    </button>
+    
+    <form class="site-nav-search" action="{% url 'home' %}" method="get" role="search" data-nav-search>
+        <label class="visually-hidden" for="nav-search-input">Search available items</label>
+        <input
+            class="site-nav-search__input"
+            id="nav-search-input"
+            type="search"
+            name="q"
+            value="{{ request.GET.q|default:'' }}"
+            placeholder="Search items..."
+            autocomplete="off"
+            tabindex="-1"
+            data-nav-search-input
+        >
+        <button
+            class="icon-btn icon-btn--soft site-nav__search"
+            type="button"
+            aria-label="Open search"
+            aria-expanded="false"
+            aria-controls="nav-search-input"
+            data-nav-search-toggle
+        >
+            {% include 'partials/icon.html' with name='search' %}
+        </button>
+    </form>
 
     {% if user.is_authenticated %}
     <a class="icon-btn icon-btn--soft" href="{% url 'item_create' %}" aria-label="Post an item">
