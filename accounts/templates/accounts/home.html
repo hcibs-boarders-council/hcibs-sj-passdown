@@ -16,20 +16,28 @@
         <h1 class="display hero__title" id="hero-title">Pass it down, pass it&nbsp;on</h1>
         <p class="hero__lead">Browse and claim items generously passed down by your seniors — textbooks, stationery, uniforms and everyday essentials. Always free, always from students like you.</p>
 
-        <div class="hero__search" role="search">
+        <form class="hero__search" method="get" action="{% url 'home' %}" role="search">
             <label class="visually-hidden" for="home-search">Search available items</label>
+
             <div class="search-pill">
                 {% include 'partials/icon.html' with name='search' %}
-                <input class="home-search-input" id="home-search" type="search" placeholder="Search available items" autocomplete="off">
+                <input class="home-search-input" id="home-search" name="q" type="search" placeholder="Search available items" value="{{ query }}" autocomplete="off">
             </div>
-            <button class="btn btn--soft menu-button" type="button">
+
+            <label class="filter-control">
                 {% include 'partials/icon.html' with name='filter' %}
-                Filter
-            </button>
-        </div>
+                <span class="visually-hidden">Filter by category</span>
+                <select class="filter-select" name="category" onchange="this.form.submit()" aria-label="Filter by category">
+                    <option value="">All categories</option>
+                    {% for value, label in categories %}
+                        <option value="{{ value }}" {% if category == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </form>
 
         <div class="hero__actions">
-            <a class="btn btn--primary post-button" href="{% url 'item_create' %}">+ Post</a>
+            <a class="btn btn--primary post-button" href="{% if user.is_authenticated %}{% url 'item_create' %}{% else %}{% url 'login' %}?next={% url 'item_create' %}{% endif %}">+ Post</a>
             <span class="hero__hint">Got something you've outgrown? Pass it on.</span>
         </div>
     </div>
@@ -48,7 +56,7 @@
                 <rect x="196" y="150" width="136" height="80" rx="12" fill="#fcf5ec"/>
                 <rect x="196" y="150" width="136" height="80" rx="12" fill="none" stroke="#ecd6bf" stroke-width="2"/>
                 <text x="212" y="196" class="hero__tag-text">Free to claim</text>
-                <path d="M300 168c-4-6-12-2-8 4l8 7 8-7c4-6-4-10-8-4z" fill="#c9443a"/>
+                <path d="M300 168c-4-6-12-2-8 4l8 7 8-7c-4-6-12-2-8-4z" fill="#c9443a"/>
                 <circle cx="216" cy="168" r="6" fill="#ffd877"/>
                 <circle cx="230" cy="214" r="5" fill="#aac9dc"/>
                 <circle cx="312" cy="212" r="6" fill="#f8b7c3"/>
@@ -67,23 +75,41 @@
 <section class="listing" aria-labelledby="listing-title">
     <div class="listing__head">
         <h2 class="section-title" id="listing-title">Fresh passdowns</h2>
+
         {% with count=items|length %}
-        {% if count %}<span class="listing__count">{{ count }} item{{ count|pluralize }} available</span>{% endif %}
+            {% if count %}
+                <span class="listing__count">{{ count }} item{{ count|pluralize }} available</span>
+            {% endif %}
         {% endwith %}
     </div>
 
     <div class="posts">
         {% for item in items %}
-        {% include 'partials/item_card.html' %}
+            {% include 'partials/item_card.html' %}
         {% empty %}
-        <div class="empty-message">
-            <div class="empty-message__art" aria-hidden="true">
-                {% include 'partials/category_art.html' with category='other' %}
+            <div class="empty-message">
+                <div class="empty-message__art" aria-hidden="true">
+                    {% include 'partials/category_art.html' with category='other' %}
+                </div>
+
+                {% if query and category %}
+                    <h3 class="empty-message__title">No items found.</h3>
+                    <p>No available items match <strong>"{{ query }}"</strong> in the selected category.</p>
+                    <a class="btn btn--primary" href="{% url 'home' %}">Clear search and filter</a>
+                {% elif query %}
+                    <h3 class="empty-message__title">No items found.</h3>
+                    <p>No available items match <strong>"{{ query }}"</strong>.</p>
+                    <a class="btn btn--primary" href="{% url 'home' %}">Clear search</a>
+                {% elif category %}
+                    <h3 class="empty-message__title">No items found.</h3>
+                    <p>There are no available items in this category yet.</p>
+                    <a class="btn btn--primary" href="{% url 'home' %}">Clear filter</a>
+                {% else %}
+                    <h3 class="empty-message__title">No posts yet.</h3>
+                    <p>Click the <strong>+ Post</strong> button to pass down the first item!</p>
+                    <a class="btn btn--primary" href="{% if user.is_authenticated %}{% url 'item_create' %}{% else %}{% url 'login' %}?next={% url 'item_create' %}{% endif %}">+ Post an item</a>
+                {% endif %}
             </div>
-            <h3 class="empty-message__title">No posts yet.</h3>
-            <p>Click the <strong>+ Post</strong> button to pass down the first item!</p>
-            <a class="btn btn--primary" href="{% url 'item_create' %}">+ Post an item</a>
-        </div>
         {% endfor %}
     </div>
 </section>

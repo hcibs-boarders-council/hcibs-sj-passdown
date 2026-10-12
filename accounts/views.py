@@ -1,21 +1,29 @@
+from django.contrib import messages
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
+from django.core.paginator import Paginator
+from django.db.models import Prefetch
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_http_methods
+from django.utils.http import url_has_allowed_host_and_scheme
+
+from .forms import AccountDetailsForm
+from listings.models import Claim, Item, ItemPhoto
 
 
 def our_vision(request):
     return render(request, 'accounts/our_vision.html')
 
+
 def login(request):
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
+        next_url = request.POST.get('next', '')
         errors = []
 
         if not username or not password:
@@ -26,15 +34,21 @@ def login(request):
                 errors.append('We could not log you in with that username and password.')
             else:
                 auth_login(request, user)
+                if url_has_allowed_host_and_scheme(
+                    next_url,
+                    allowed_hosts={request.get_host()},
+                    require_https=request.is_secure(),
+                ):
+                    return redirect(next_url)
                 return redirect('home')
 
         return render(
             request,
             'accounts/login.html',
-            {'errors': errors, 'username': username},
+            {'errors': errors, 'username': username, 'next': next_url},
         )
 
-    return render(request, 'accounts/login.html')
+    return render(request, 'accounts/login.html', {'next': request.GET.get('next', '')})
 
 
 def logout(request):
@@ -43,6 +57,7 @@ def logout(request):
 
     auth_logout(request)
     return redirect('home')
+
 
 def register(request):
     if request.method == 'POST':
@@ -102,3 +117,60 @@ def register(request):
         )
 
     return render(request, 'accounts/register.html')
+
+
+@login_required(login_url='login')
+def account_detail(request):
+    if request.method == 'POST':
+        form = AccountDetailsForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Your account details were updated.')
+            return redirect('account_detail')
+    else:
+        form = AccountDetailsForm(instance=request.user)
+
+    return render(request, 'accounts/account_detail.html', {'form': form})
+
+
+@login_required(login_url='login')
+def my_posts(request):
+    items = (
+        Item.objects
+        .filter(owner=request.user)
+        .prefetch_related(
+            Prefetch(
+                'photos',
+                queryset=ItemPhoto.objects.order_by('position', 'id'),
+            ),
+            Prefetch(
+                'claims',
+                queryset=Claim.objects.select_related('claimant').order_by('-created_at'),
+            ),
+        )
+        .order_by('-created_at')
+    )
+    paginator = Paginator(items, 12)
+    page = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'accounts/my_posts.html', {'page_obj': page})
+
+
+@login_required(login_url='login')
+def my_claims(request):
+    claims = (
+        Claim.objects
+        .filter(claimant=request.user)
+        .select_related('item', 'item__owner')
+        .prefetch_related(
+            Prefetch(
+                'item__photos',
+                queryset=ItemPhoto.objects.order_by('position', 'id'),
+            ),
+        )
+        .order_by('-created_at')
+    )
+    paginator = Paginator(claims, 12)
+    page = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'accounts/my_claims.html', {'page_obj': page})

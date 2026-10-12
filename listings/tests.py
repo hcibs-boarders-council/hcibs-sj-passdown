@@ -1,3 +1,529 @@
-from django.test import TestCase
+from io import BytesIO
+from os import urandom
+from tempfile import TemporaryDirectory
 
-# Create your tests here.
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
+from django.urls import reverse
+from PIL import Image
+
+from .forms import MAX_PHOTO_COUNT, MAX_PHOTO_SIZE, ItemForm
+from .models import Claim, Item, ItemPhoto
+
+from datetime import timedelta
+
+from django.utils import timezone
+
+class ListingPhotoTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.media_directory = TemporaryDirectory()
+        cls.media_override = override_settings(MEDIA_ROOT=cls.media_directory.name)
+        cls.media_override.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.media_override.disable()
+        cls.media_directory.cleanup()
+        super().tearDownClass()
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='poster',
+            password='secure-password-123',
+        )
+        self.other_user = get_user_model().objects.create_user(
+            username='other-poster',
+            password='secure-password-123',
+        )
+
+    def image_file(self, name='photo.png', image_format='PNG'):
+        image_data = BytesIO()
+        Image.new('RGB', (40, 30), color='coral').save(image_data, format=image_format)
+        content_type = {
+            'JPEG': 'image/jpeg',
+            'PNG': 'image/png',
+            'WEBP': 'image/webp',
+            'GIF': 'image/gif',
+        }[image_format]
+        return SimpleUploadedFile(name, image_data.getvalue(), content_type=content_type)
+
+    def oversized_image_file(self):
+        image_data = BytesIO()
+        image = Image.frombytes('RGB', (1800, 1200), urandom(1800 * 1200 * 3))
+        image.save(image_data, format='PNG')
+        return SimpleUploadedFile('large-photo.png', image_data.getvalue(), content_type='image/png')
+
+    def post_data(self, photos):
+        return {
+            'title': 'Math revision guide',
+            'description': 'Useful notes for the next owner.',
+            'category': Item.Category.BOOKS,
+            'photos': photos,
+        }
+
+    def create_item_with_photos(self, owner=None, photo_count=1):
+        item = Item.objects.create(
+            owner=owner or self.user,
+            title='Chemistry notes',
+            description='A complete set of notes.',
+            category=Item.Category.BOOKS,
+        )
+        photos = []
+        for position in range(photo_count):
+            photo = ItemPhoto.objects.create(
+                item=item,
+                image=self.image_file(f'photo-{position}.png'),
+                position=position,
+            )
+            photos.append(photo)
+        return item, photos
+
+    def test_create_item_with_one_photo(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse('item_create'),
+            self.post_data([self.image_file()]),
+        )
+
+        self.assertRedirects(response, reverse('home'))
+        item = Item.objects.get(title='Math revision guide')
+        self.assertEqual(item.owner, self.user)
+        self.assertEqual(item.status, Item.Status.AVAILABLE)
+        self.assertEqual(item.photos.count(), 1)
+        self.assertEqual(item.photos.get().position, 0)
+
+    def test_create_item_accepts_five_photos_in_upload_order(self):
+        self.client.force_login(self.user)
+        photos = [self.image_file(f'photo-{number}.png') for number in range(5)]
+
+        response = self.client.post(reverse('item_create'), self.post_data(photos))
+
+        self.assertRedirects(response, reverse('home'))
+        item = Item.objects.get(title='Math revision guide')
+        saved_photos = list(item.photos.all())
+        self.assertEqual(len(saved_photos), MAX_PHOTO_COUNT)
+        self.assertEqual([photo.position for photo in saved_photos], [0, 1, 2, 3, 4])
+
+    def test_create_item_rejects_more_than_five_photos(self):
+        self.client.force_login(self.user)
+        photos = [self.image_file(f'photo-{number}.png') for number in range(6)]
+
+        response = self.client.post(reverse('item_create'), self.post_data(photos))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Item.objects.count(), 0)
+        self.assertIn('You can upload up to 5 photos.', response.context['form'].errors['photos'])
+
+    def test_create_item_requires_a_photo(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse('item_create'), self.post_data([]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Item.objects.count(), 0)
+        self.assertIn('Add at least one photo.', response.context['form'].errors['photos'])
+
+    def test_create_item_rejects_invalid_or_unsupported_images(self):
+        self.client.force_login(self.user)
+
+        invalid = SimpleUploadedFile('notes.txt', b'not an image', content_type='text/plain')
+        response = self.client.post(reverse('item_create'), self.post_data([invalid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Item.objects.count(), 0)
+        self.assertIn('Upload a valid JPEG, PNG, or WebP image.', response.context['form'].errors['photos'])
+
+        response = self.client.post(
+            reverse('item_create'),
+            self.post_data([self.image_file('animated.gif', 'GIF')]),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Item.objects.count(), 0)
+        self.assertIn('Upload only JPEG, PNG, or WebP photos.', response.context['form'].errors['photos'])
+
+    def test_create_item_rejects_an_oversized_photo(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse('item_create'),
+            self.post_data([self.oversized_image_file()]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Item.objects.count(), 0)
+        self.assertIn('Each photo must be 5 MB or smaller.', response.context['form'].errors['photos'])
+
+    def test_create_item_ignores_submitted_owner_status_and_item(self):
+        self.client.force_login(self.user)
+        other_item, _ = self.create_item_with_photos(owner=self.other_user)
+        data = self.post_data([self.image_file()])
+        data.update(
+            {
+                'owner': self.other_user.pk,
+                'status': Item.Status.PASSED_ON,
+                'item': other_item.pk,
+            },
+        )
+
+        response = self.client.post(reverse('item_create'), data)
+
+        self.assertRedirects(response, reverse('home'))
+        new_item = Item.objects.get(title='Math revision guide')
+        self.assertEqual(new_item.owner, self.user)
+        self.assertEqual(new_item.status, Item.Status.AVAILABLE)
+        self.assertNotEqual(new_item.pk, other_item.pk)
+        self.assertEqual(new_item.photos.count(), 1)
+
+    def test_home_shows_only_the_primary_photo(self):
+        item, photos = self.create_item_with_photos(photo_count=2)
+
+        response = self.client.get(reverse('home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, photos[0].image.url)
+        self.assertNotContains(response, photos[1].image.url)
+        self.assertContains(response, reverse('item_detail', kwargs={'pk': item.pk}))
+
+    def test_logged_out_user_is_redirected_from_item_detail(self):
+        item, _ = self.create_item_with_photos()
+        detail_url = reverse('item_detail', kwargs={'pk': item.pk})
+
+        response = self.client.get(detail_url)
+
+        self.assertRedirects(response, f'{reverse("login")}?next={detail_url}')
+
+    def test_login_returns_user_to_the_requested_item_detail(self):
+        item, _ = self.create_item_with_photos()
+        detail_url = reverse('item_detail', kwargs={'pk': item.pk})
+
+        response = self.client.post(
+            reverse('login'),
+            {
+                'username': self.other_user.username,
+                'password': 'secure-password-123',
+                'next': detail_url,
+            },
+        )
+
+        self.assertRedirects(response, detail_url)
+
+    def test_logged_in_user_can_navigate_item_photos(self):
+        item, photos = self.create_item_with_photos(photo_count=3)
+        self.client.force_login(self.other_user)
+
+        response = self.client.get(reverse('item_detail', kwargs={'pk': item.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['active_photo'], photos[0])
+        self.assertContains(response, photos[0].image.url)
+        self.assertContains(response, photos[1].image.url)
+
+        response = self.client.get(
+            reverse('item_detail', kwargs={'pk': item.pk}),
+            {'photo': photos[1].pk},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['active_photo'], photos[1])
+        self.assertEqual(response.context['previous_photo'], photos[0])
+        self.assertEqual(response.context['next_photo'], photos[2])
+
+
+class HomeViewTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='student',
+            password='test-password-123',
+        )
+
+    def test_home_shows_available_item(self):
+        item = Item.objects.create(
+            owner=self.user,
+            title='Chemistry textbook',
+            description='Used textbook in good condition.',
+            category=Item.Category.BOOKS,
+        )
+
+        response = self.client.get(reverse('home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, item.title)
+
+
+    def test_home_orders_available_items_newest_first(self):
+        older_item = Item.objects.create(
+            owner=self.user,
+            title='Old notebook',
+            description='Partly used notebook.',
+            category=Item.Category.STATIONERY,
+        )
+        older_item.created_at = timezone.now() - timedelta(days=1)
+        older_item.save(update_fields=['created_at'])
+
+        newer_item = Item.objects.create(
+            owner=self.user,
+            title='New notebook',
+            description='Unused notebook.',
+            category=Item.Category.STATIONERY,
+        )
+
+        response = self.client.get(reverse('home'))
+
+        self.assertEqual(
+            list(response.context['items']),
+            [newer_item, older_item],
+        )
+
+    def test_home_provides_owner_information(self):
+        Item.objects.create(
+            owner=self.user,
+            title='School jacket',
+            description='Jacket in good condition.',
+            category=Item.Category.CLOTHES,
+        )
+
+        response = self.client.get(reverse('home'))
+
+        item = list(response.context['items'])[0]
+        self.assertEqual(item.owner.username, 'student')
+        self.assertContains(response, 'student')
+
+    def test_home_does_not_show_reserved_item(self):
+        item = Item.objects.create(
+            owner=self.user,
+            title='Reserved calculator',
+            description='Already reserved.',
+            category=Item.Category.STATIONERY,
+            status=Item.Status.RESERVED,
+        )
+
+        response = self.client.get(reverse('home'))
+
+        self.assertNotIn(item, response.context['items'])
+        self.assertNotContains(response, item.title)
+
+    def test_home_does_not_show_passed_on_item(self):
+        item = Item.objects.create(
+            owner=self.user,
+            title='Passed-on tie',
+            description='Already collected.',
+            category=Item.Category.CLOTHES,
+            status=Item.Status.PASSED_ON,
+        )
+
+        response = self.client.get(reverse('home'))
+
+        self.assertNotIn(item, response.context['items'])
+        self.assertNotContains(response, item.title)
+
+    def test_home_remains_public_for_logged_out_users(self):
+        response = self.client.get(reverse('home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Login')
+        self.assertContains(response, 'Register')
+
+    def test_home_keeps_logged_in_navigation(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse('home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Our Vision')
+        self.assertContains(response, 'Chat')
+        self.assertNotContains(response, 'Login')
+        self.assertNotContains(response, 'Register')
+
+
+class CreateItemViewTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+        username='student',
+        password='test-password-123',
+        )
+
+    def test_unauthenticated_get_redirects_to_login(self):
+        response = self.client.get(reverse('item_create'))
+
+        self.assertRedirects(
+            response,
+            f"{reverse('login')}?next={reverse('item_create')}",
+        )
+
+    def test_authenticated_get_has_an_unbound_form(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse('item_create'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'listings/item_form.html')
+        self.assertIsInstance(response.context['form'], ItemForm)
+        self.assertFalse(response.context['form'].is_bound)
+
+    def test_missing_fields_show_errors_without_creating_item(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse('item_create'), {})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'listings/item_form.html')
+
+        form = response.context['form']
+        self.assertFalse(form.is_valid())
+
+        for field in ('title', 'description', 'category', 'photos'):
+            with self.subTest(field=field):
+                self.assertIn(field, form.errors)
+
+        self.assertEqual(Item.objects.count(), 0)
+
+class ClaimWorkflowTests(TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(
+            username='item-owner',
+            password='secure-password-123',
+        )
+        self.claimant = get_user_model().objects.create_user(
+            username='item-claimant',
+            password='secure-password-123',
+        )
+        self.other_claimant = get_user_model().objects.create_user(
+            username='other-claimant',
+            password='secure-password-123',
+        )
+        self.item = Item.objects.create(
+            owner=self.owner,
+            title='Chemistry notes',
+            description='JC chemistry notes',
+            category=Item.Category.BOOKS,
+            status=Item.Status.AVAILABLE,
+        )
+
+    def create_claim(self, claimant=None, status=Claim.Status.PENDING):
+        return Claim.objects.create(
+            item=self.item,
+            claimant=claimant or self.claimant,
+            status=status,
+            note='I would like this item.',
+        )
+
+    def test_claimant_can_submit_claim(self):
+        self.client.force_login(self.claimant)
+
+        response = self.client.post(
+            reverse('claim_create', kwargs={'pk': self.item.pk}),
+            {'note': 'I would like these notes.'},
+        )
+
+        self.assertRedirects(response, reverse('my_claims'))
+        claim = Claim.objects.get(item=self.item, claimant=self.claimant)
+        self.assertEqual(claim.status, Claim.Status.PENDING)
+        self.assertEqual(claim.note, 'I would like these notes.')
+
+    def test_user_cannot_claim_own_item(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse('claim_create', kwargs={'pk': self.item.pk}),
+            {'note': 'I want my own item.'},
+        )
+
+        self.assertEqual(
+            response.url,
+            reverse('item_detail', kwargs={'pk': self.item.pk}),
+        )
+        self.assertFalse(Claim.objects.filter(item=self.item).exists())
+
+    def test_duplicate_claim_is_prevented(self):
+        self.create_claim()
+        self.client.force_login(self.claimant)
+
+        response = self.client.post(
+            reverse('claim_create', kwargs={'pk': self.item.pk}),
+            {'note': 'Another request.'},
+        )
+
+        self.assertRedirects(response, reverse('my_claims'))
+        self.assertEqual(
+            Claim.objects.filter(item=self.item, claimant=self.claimant).count(),
+            1,
+        )
+
+    def test_owner_can_approve_claim_and_decline_other_pending_claims(self):
+        selected_claim = self.create_claim()
+        other_claim = self.create_claim(claimant=self.other_claimant)
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse(
+                'claim_update',
+                kwargs={'pk': selected_claim.pk, 'action': 'approve'},
+            ),
+        )
+
+        self.assertRedirects(response, reverse('my_posts'))
+
+        selected_claim.refresh_from_db()
+        other_claim.refresh_from_db()
+        self.item.refresh_from_db()
+
+        self.assertEqual(selected_claim.status, Claim.Status.APPROVED)
+        self.assertIsNotNone(selected_claim.decided_at)
+        self.assertEqual(other_claim.status, Claim.Status.DECLINED)
+        self.assertIsNotNone(other_claim.decided_at)
+        self.assertEqual(self.item.status, Item.Status.RESERVED)
+
+    def test_non_owner_cannot_approve_claim(self):
+        claim = self.create_claim()
+        self.client.force_login(self.other_claimant)
+
+        response = self.client.post(
+            reverse(
+                'claim_update',
+                kwargs={'pk': claim.pk, 'action': 'approve'},
+            ),
+        )
+
+        self.assertRedirects(response, reverse('my_posts'))
+        claim.refresh_from_db()
+        self.item.refresh_from_db()
+
+        self.assertEqual(claim.status, Claim.Status.PENDING)
+        self.assertEqual(self.item.status, Item.Status.AVAILABLE)
+
+    def test_claimant_can_cancel_pending_claim(self):
+        claim = self.create_claim()
+        self.client.force_login(self.claimant)
+
+        response = self.client.post(
+            reverse(
+                'claim_update',
+                kwargs={'pk': claim.pk, 'action': 'cancel'},
+            ),
+        )
+
+        self.assertRedirects(response, reverse('my_claims'))
+        claim.refresh_from_db()
+        self.assertEqual(claim.status, Claim.Status.CANCELLED)
+        self.assertIsNotNone(claim.decided_at)
+
+    def test_owner_can_complete_approved_claim(self):
+        claim = self.create_claim(status=Claim.Status.APPROVED)
+        self.item.status = Item.Status.RESERVED
+        self.item.save(update_fields=['status', 'updated_at'])
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse(
+                'claim_update',
+                kwargs={'pk': claim.pk, 'action': 'complete'},
+            ),
+        )
+
+        self.assertRedirects(response, reverse('my_posts'))
+        claim.refresh_from_db()
+        self.item.refresh_from_db()
+
+        self.assertEqual(claim.status, Claim.Status.COMPLETED)
+        self.assertEqual(self.item.status, Item.Status.PASSED_ON)

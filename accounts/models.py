@@ -1,2 +1,1 @@
-from django.conf import settings
-from django.db import models
+"""Account app models live in Django's built-in auth User model."""

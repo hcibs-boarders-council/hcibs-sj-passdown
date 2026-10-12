@@ -1,0 +1,163 @@
+
+.account-page {
+    width: min(100% - 2rem, 900px);
+    margin: 0 auto;
+    padding: 2.5rem 0 4rem;
+}
+
+.account-page__header {
+    margin-bottom: 2rem;
+}
+
+.account-page__header h1 {
+    margin: 0.35rem 0 0.75rem;
+}
+
+.account-page__header > p:last-child {
+    color: var(--text-muted, #686868);
+}
+
+.account-form {
+    max-width: 600px;
+    display: grid;
+    gap: 1.25rem;
+}
+
+.account-form__field {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.account-form__field label {
+    font-weight: 600;
+}
+
+.account-form__field input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border, #dedede);
+    border-radius: 6px;
+    background: white;
+    color: inherit;
+    font: inherit;
+}
+
+.account-form__field input:focus-visible {
+    outline: 2px solid var(--accent, #d66b58);
+    outline-offset: 2px;
+}
+
+.account-notice,
+.account-errors {
+    max-width: 600px;
+    margin: 0 0 1.25rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border, #dedede);
+    border-radius: 6px;
+}
+
+.account-notice--success {
+    border-color: #6d9b7b;
+}
+
+.account-notice--error,
+.account-errors {
+    border-color: #c65b52;
+}
+
+.account-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.account-card {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 1.25rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border, #dedede);
+    border-radius: 8px;
+    background: var(--surface, #fff);
+}
+
+.account-card__image {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 5px;
+}
+
+.account-card__image--empty {
+    display: grid;
+    place-items: center;
+    background: var(--surface-muted, #f4f1ef);
+    color: var(--text-muted, #686868);
+    font-size: 0.875rem;
+}
+
+.account-card__content {
+    min-width: 0;
+}
+
+.account-card__eyebrow,
+.account-card__meta {
+    color: var(--text-muted, #686868);
+    font-size: 0.875rem;
+}
+
+.account-card__title {
+    margin: 0.35rem 0 0.6rem;
+    overflow-wrap: anywhere;
+}
+
+.account-card__description {
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.account-card__claims {
+    margin-top: 1rem;
+}
+
+.account-card__claims summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.account-card__claims li {
+    margin-top: 0.75rem;
+}
+
+.account-empty {
+    padding: 2.5rem 1.5rem;
+    border: 1px solid var(--border, #dedede);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.account-empty p {
+    margin-bottom: 1.25rem;
+}
+
+.account-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+@media (max-width: 600px) {
+    .account-page {
+        width: min(100% - 1.25rem, 900px);
+        padding-top: 1.75rem;
+    }
+
+    .account-card {
+        grid-template-columns: 96px minmax(0, 1fr);
+        gap: 0.85rem;
+        padding: 0.85rem;
+    }
+}

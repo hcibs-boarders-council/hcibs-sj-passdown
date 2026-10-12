@@ -23,6 +23,7 @@
 
 <form method="post" class="form-stack" novalidate>
     {% csrf_token %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 
     <div class="field">
         <label for="id_username">Username</label>

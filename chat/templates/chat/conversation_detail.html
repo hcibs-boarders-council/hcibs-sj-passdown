@@ -1,0 +1,64 @@
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chat with {{ other_participant.username }} — SJ Passdown{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/pages/chat.css' %}">
+{% endblock %}
+
+{% block body_class %}page-chat{% endblock %}
+
+{% block content %}
+<section
+    class="chat-page chat-thread"
+    aria-labelledby="chat-title"
+    data-chat-poll-url="{% url 'chat:conversation_messages' conversation.pk %}"
+    data-chat-read-url="{% url 'chat:conversation_mark_read' conversation.pk %}"
+    data-current-user-id="{{ request.user.id }}"
+>
+    <a class="chat-thread__back" href="{% url 'chat:conversation_list' %}">← All chats</a>
+
+    <header class="chat-thread__header">
+        <span class="avatar">{{ other_participant.username|first|upper }}</span>
+        <div>
+            <h1 id="chat-title">{{ other_participant.username }}</h1>
+            <a href="{% url 'item_detail' conversation.item_id %}">{{ conversation.item.title }}</a>
+        </div>
+    </header>
+
+    <div
+    class="chat-thread__messages"
+    aria-label="Messages"   
+    aria-live="polite"
+    data-latest-message-id="{{ chat_messages.last.pk|default:0 }}"
+    >
+        {% for message in chat_messages %}
+        <article class="chat-message{% if message.sender_id == request.user.id %} chat-message--mine{% endif %}">
+            <p class="chat-message__sender">
+                {% if message.sender_id == request.user.id %}You{% else %}{{ message.sender.username }}{% endif %}
+                <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, g:i a" }}</time>
+            </p>
+            <p class="chat-message__body">{{ message.body|linebreaksbr }}</p>
+        </article>
+        {% empty %}
+        <p class="chat-thread__empty">No messages yet. Say hello and arrange collection!</p>
+        {% endfor %}
+    </div>
+
+    <form class="chat-compose" method="post">
+        {% csrf_token %}
+        <label for="{{ form.body.id_for_label }}">Message</label>
+        {{ form.body }}
+        {% for error in form.body.errors %}
+        <p class="form-error">{{ error }}</p>
+        {% endfor %}
+        <button class="btn btn--primary" type="submit">Send message</button>
+    </form>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/chat.js' %}" defer></script>
+{% endblock %}

@@ -10,22 +10,75 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+from urllib.parse import unquote, urlparse
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.lower() in {'1', 'true', 'yes', 'on'}
+
+
+def env_list(name, default=None):
+    value = os.environ.get(name)
+    if not value:
+        return default or []
+    return [item.strip() for item in value.split(',') if item.strip()]
+
+
+def database_from_url(url):
+    parsed = urlparse(url)
+    if parsed.scheme not in {'postgres', 'postgresql'}:
+        raise ValueError('DATABASE_URL must use postgres:// or postgresql://')
+
+    return {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': parsed.path.lstrip('/'),
+        'USER': unquote(parsed.username or ''),
+        'PASSWORD': unquote(parsed.password or ''),
+        'HOST': parsed.hostname or '',
+        'PORT': str(parsed.port or ''),
+    }
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-%y0&jb$9ifqj1h^m-47ujfa1t8p6xkp_^u&*196uozk0@3a0z%'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+IS_PRODUCTION = os.environ.get('DJANGO_ENV', 'development').lower() == 'production'
 
-ALLOWED_HOSTS = []
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+
+if not SECRET_KEY:
+    if IS_PRODUCTION:
+        raise ImproperlyConfigured(
+            'DJANGO_SECRET_KEY must be set in production.'
+        )
+    SECRET_KEY = (
+        'django-insecure-local-development-only-not-for-production'
+    )
+
+DEBUG = env_bool('DJANGO_DEBUG', not IS_PRODUCTION)
+
+if IS_PRODUCTION and DEBUG:
+    raise ImproperlyConfigured(
+        'DJANGO_DEBUG must be false in production.'
+    )
+
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS')
+CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
+
+if IS_PRODUCTION and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured(
+        'DJANGO_ALLOWED_HOSTS must be configured in production.'
+    )
 
 
 # Application definition
@@ -38,7 +91,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'accounts',
-    'listings',
+    'listings.apps.ListingsConfig',
+    'chat.apps.ChatConfig',
 ]
 
 MIDDLEWARE = [
@@ -63,6 +117,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'chat.context_processors.chat_unread_count',
             ],
         },
     },
@@ -74,18 +129,30 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
+
+if IS_PRODUCTION and not os.environ.get('DATABASE_URL'):
+    raise ImproperlyConfigured(
+        'DATABASE_URL must be configured in production.'
+    )
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'hcibs_sj_passdown',
-        'USER': 'hcibs_sj_user',
-        'PASSWORD': '12345',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
+    'default': (
+        database_from_url(os.environ['DATABASE_URL'])
+        if os.environ.get('DATABASE_URL')
+        else {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get(
+                'POSTGRES_DB', 'hcibs_sj_passdown'
+            ),
+            'USER': os.environ.get(
+                'POSTGRES_USER', 'hcibs_sj_user'
+            ),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', '12345'),
+            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        }
+    )
 }
-
-
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 
@@ -121,10 +188,22 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+SECURE_PROXY_SSL_HEADER = (
+    ('HTTP_X_FORWARDED_PROTO', 'https')
+    if env_bool('DJANGO_SECURE_PROXY_SSL_HEADER', not DEBUG)
+    else None
+)
+SESSION_COOKIE_SECURE = env_bool('DJANGO_SESSION_COOKIE_SECURE', not DEBUG)
+CSRF_COOKIE_SECURE = env_bool('DJANGO_CSRF_COOKIE_SECURE', not DEBUG)
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration

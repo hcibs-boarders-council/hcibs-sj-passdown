@@ -24,7 +24,13 @@
 
     <a class="nav-pill{% if current == 'our_vision' %} is-active{% endif %}" href="{% url 'our_vision' %}"{% if current == 'our_vision' %} aria-current="page"{% endif %}>Our Vision</a>
 
-    <button class="nav-pill site-nav-button" type="button">Chat</button>
+    <a class="nav-pill{% if current == 'conversation_list' or current == 'conversation_detail' %} is-active{% endif %}" href="{% url 'chat:conversation_list' %}" {% if current == 'conversation_list' or current == 'conversation_detail' %} aria-current="page"{% endif %}>Chat
+    {% if chat_unread_count %}
+    <span class="chat-unread" aria-label="{{ chat_unread_count }} unread messages">
+        {{ chat_unread_count }}
+    </span>
+    {% endif %}
+</a>
     {% else %}
     <a class="nav-pill{% if current == 'our_vision' %} is-active{% endif %}" href="{% url 'our_vision' %}"{% if current == 'our_vision' %} aria-current="page"{% endif %}>Our Vision</a>
     {% endif %}
@@ -53,21 +59,20 @@
                     <p class="profile-dropdown__meta">HCIBS student</p>
                 </div>
             </div>
-
-            <button type="button" class="profile-dropdown__item">
+            <a href="{% url 'account_detail' %}" class="profile-dropdown__item">
                 {% include 'partials/icon.html' with name='user' %}
                 Account Details
-            </button>
+            </a>
 
-            <button type="button" class="profile-dropdown__item">
+            <a href="{% url 'my_posts' %}" class="profile-dropdown__item">
                 {% include 'partials/icon.html' with name='grid' %}
                 My Posts
-            </button>
+            </a>
 
-            <button type="button" class="profile-dropdown__item">
+            <a href="{% url 'my_claims' %}" class="profile-dropdown__item">
                 {% include 'partials/icon.html' with name='clock' %}
-                My History
-            </button>
+                My Claims
+            </a>
 
             <form method="post" action="{% url 'logout' %}">
                 {% csrf_token %}

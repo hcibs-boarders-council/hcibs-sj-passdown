@@ -1,0 +1,66 @@
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Account Details — SJ Passdown{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/pages/account.css' %}">
+{% endblock %}
+
+{% block body_class %}page-account{% endblock %}
+
+{% block content %}
+<section class="account-page" aria-labelledby="account-title">
+    <header class="account-page__header">
+        <p class="eyebrow">Your profile</p>
+        <h1 class="display" id="account-title">Account Details</h1>
+        <p>Manage the details associated with your account.</p>
+    </header>
+
+    {% if messages %}
+        {% for message in messages %}
+            <p class="account-notice account-notice--{{ message.tags }}"
+               role="status">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+
+    <form class="account-form" method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="account-errors" role="alert">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <div class="account-form__field">
+            <label for="{{ form.first_name.id_for_label }}">First name</label>
+            {{ form.first_name }}
+            {% for error in form.first_name.errors %}
+                <p class="form-error">{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <div class="account-form__field">
+            <label for="{{ form.last_name.id_for_label }}">Last name</label>
+            {{ form.last_name }}
+            {% for error in form.last_name.errors %}
+                <p class="form-error">{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <div class="account-form__field">
+            <label for="{{ form.email.id_for_label }}">Email address</label>
+            {{ form.email }}
+            {% for error in form.email.errors %}
+                <p class="form-error">{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <button class="btn btn--primary" type="submit">
+            Save changes
+        </button>
+    </form>
+</section>
+{% endblock %}

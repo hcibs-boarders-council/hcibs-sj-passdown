@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ item.title }} — SJ Passdown{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/pages/item_detail.css' %}">
+{% endblock %}
+
+{% block body_class %}page-item-detail{% endblock %}
+
+{% block content %}
+<section class="item-detail" aria-labelledby="item-title">
+    <div class="item-detail__gallery">
+        <a class="item-detail__back" href="{% url 'home' %}">Back to passdowns</a>
+
+        <div class="item-detail__main-image">
+            <img src="{{ active_photo.image.url }}" alt="{{ item.title }} photo {{ active_photo.position|add:'1' }}">
+        </div>
+
+        {% if photos|length > 1 %}
+        <div class="item-detail__gallery-controls" aria-label="Photo navigation">
+            {% if previous_photo %}
+            <a class="btn btn--soft btn--sm" href="?photo={{ previous_photo.pk }}">Previous</a>
+            {% else %}
+            <span class="item-detail__nav-spacer" aria-hidden="true"></span>
+            {% endif %}
+
+            <div class="item-detail__thumbnails">
+                {% for photo in photos %}
+                <a class="item-detail__thumbnail{% if photo.pk == active_photo.pk %} item-detail__thumbnail--active{% endif %}" href="?photo={{ photo.pk }}"{% if photo.pk == active_photo.pk %} aria-current="true"{% endif %}>
+                    <img src="{{ photo.image.url }}" alt="Show photo {{ forloop.counter }} of {{ item.title }}">
+                </a>
+                {% endfor %}
+            </div>
+
+            {% if next_photo %}
+            <a class="btn btn--soft btn--sm" href="?photo={{ next_photo.pk }}">Next</a>
+            {% else %}
+            <span class="item-detail__nav-spacer" aria-hidden="true"></span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="item-detail__info">
+        <span class="chip">Free</span>
+        <p class="item-detail__category">{{ item.get_category_display }}</p>
+        <h1 class="display item-detail__title" id="item-title">{{ item.title }}</h1>
+        <p class="item-detail__description">{{ item.description|linebreaksbr }}</p>
+
+        <dl class="item-detail__meta">
+            <div>
+                <dt>Passed down by</dt>
+                <dd>{{ item.owner.username }}</dd>
+            </div>
+            <div>
+                <dt>Posted</dt>
+                <dd><time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:"j M Y" }}</time></dd>
+            </div>
+        </dl>
+        {% if item.owner_id != request.user.id %}
+        <form method="post" action="{% url 'chat:start_conversation' item.id %}">
+            {% csrf_token %}
+            <button class="btn btn--primary" type="submit">
+                Message owner
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

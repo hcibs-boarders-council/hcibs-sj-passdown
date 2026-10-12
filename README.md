@@ -99,7 +99,7 @@ python3 manage.py runserver
 │   │       ├── auth.css
 │   │       └── home.css
 │   ├── img
-│   │   └── favicon.svg
+│   │   └── logo.jpeg
 │   └── js
 │       ├── item_form.js
 │       └── nav.js
