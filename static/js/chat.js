@@ -108,8 +108,11 @@
             });
 
             if (!response.ok) {
-                if (response.status === 401 || response.status === 403 ||
-                    response.status === 404) {
+                if (
+                    response.status === 401 ||
+                    response.status === 403 ||
+                    response.status === 404
+                ) {
                     stopped = true;
                 }
                 return;
@@ -124,8 +127,10 @@
             const shouldScroll = isNearBottom();
 
             for (const message of data.messages) {
-                if (!Number.isSafeInteger(message.id) ||
-                    message.id <= latestMessageId) {
+                if (
+                    !Number.isSafeInteger(message.id) ||
+                    message.id <= latestMessageId
+                ) {
                     continue;
                 }
 

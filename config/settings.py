@@ -90,6 +90,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     'accounts',
     'listings.apps.ListingsConfig',
     'chat.apps.ChatConfig',
@@ -125,6 +126,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+ASGI_APPLICATION = 'config.asgi.application'
+
+REDIS_URL = os.environ.get('REDIS_URL')
+
+if IS_PRODUCTION and not REDIS_URL:
+    raise ImproperlyConfigured(
+        'REDIS_URL must be configured in production.'
+    )
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [
+                REDIS_URL or 'redis://127.0.0.1:6379/0',
+            ],
+        },
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases

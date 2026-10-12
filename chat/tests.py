@@ -1,3 +1,10 @@
+from asgiref.sync import async_to_sync, sync_to_async
+from channels.layers import get_channel_layer
+from channels.routing import URLRouter
+from channels.testing import WebsocketCommunicator
+from channels.layers import InMemoryChannelLayer
+from django.test import TransactionTestCase, override_settings
+from chat.routing import websocket_urlpatterns
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
@@ -9,6 +16,9 @@ from datetime import timedelta
 from listings.models import Item
 from .context_processors import chat_unread_count
 from .models import Conversation, ConversationReadState, Message
+
+from channels.auth import AuthMiddlewareStack
+from django.conf import settings
 
 User = get_user_model()
 
@@ -330,3 +340,218 @@ class ChatUnreadCountTests(TestCase):
             chat_unread_count(request)['chat_unread_count'],
             1,
         )
+
+
+@override_settings(
+    CHANNEL_LAYERS={
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    },
+)
+class ChatWebSocketTests(TransactionTestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username="ws_owner",
+            password="TestPassword123!",
+        )
+        self.requester = User.objects.create_user(
+            username="ws_requester",
+            password="TestPassword123!",
+        )
+        self.outsider = User.objects.create_user(
+            username="ws_outsider",
+            password="TestPassword123!",
+        )
+        self.item = Item.objects.create(
+            owner=self.owner,
+            title="WebSocket test textbook",
+            description="Testing real-time chat.",
+            category=Item.Category.BOOKS,
+        )
+        self.conversation = Conversation.objects.create(
+            item=self.item,
+            owner=self.owner,
+            requester=self.requester,
+        )
+
+    def make_communicator(self, user):
+        communicator = WebsocketCommunicator(
+            URLRouter(websocket_urlpatterns),
+            f"/ws/chat/{self.conversation.pk}/",
+        )
+        communicator.scope["user"] = user
+        return communicator
+
+    def test_anonymous_user_is_rejected(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        async def run_test():
+            communicator = self.make_communicator(AnonymousUser())
+            connected, detail = await communicator.connect()
+            self.assertFalse(connected)
+            self.assertEqual(detail, 4401)
+
+        async_to_sync(run_test)()
+
+    def test_outsider_is_rejected(self):
+        async def run_test():
+            communicator = self.make_communicator(self.outsider)
+            connected, detail = await communicator.connect()
+            self.assertFalse(connected)
+            self.assertEqual(detail, 4404)
+
+        async_to_sync(run_test)()
+
+    def test_participant_can_send_and_receive_message(self):
+        async def run_test():
+            owner_socket = self.make_communicator(self.owner)
+            requester_socket = self.make_communicator(self.requester)
+
+            owner_connected, _ = await owner_socket.connect()
+            requester_connected, _ = await requester_socket.connect()
+
+            self.assertTrue(owner_connected)
+            self.assertTrue(requester_connected)
+
+            await requester_socket.send_json_to({
+                "type": "message",
+                "body": "  Hello through WebSockets!  ",
+                "client_message_id": "test-message-1",
+            })
+
+            owner_event = await owner_socket.receive_json_from(
+                timeout=2,
+            )
+            requester_event = await requester_socket.receive_json_from(
+                timeout=2,
+            )
+
+            self.assertEqual(owner_event["type"], "message")
+            self.assertEqual(
+                owner_event["message"]["body"],
+                "Hello through WebSockets!",
+            )
+            self.assertEqual(
+                requester_event["message"]["id"],
+                owner_event["message"]["id"],
+            )
+            self.assertEqual(
+                owner_event["client_message_id"],
+                "test-message-1",
+            )
+            self.assertEqual(
+                requester_event["client_message_id"],
+                "test-message-1",
+            )
+
+            await owner_socket.disconnect()
+            await requester_socket.disconnect()
+
+        async_to_sync(run_test)()
+
+        message = Message.objects.get(
+            conversation=self.conversation,
+        )
+        self.assertEqual(message.sender, self.requester)
+        self.assertEqual(message.body, "Hello through WebSockets!")
+
+    def test_invalid_messages_are_not_saved(self):
+        async def run_test():
+            communicator = self.make_communicator(self.requester)
+            connected, _ = await communicator.connect()
+            self.assertTrue(connected)
+
+            for body in ("   ", "x" * 2001, None):
+                await communicator.send_json_to({
+                    "type": "message",
+                    "body": body,
+                })
+                response = await communicator.receive_json_from(
+                    timeout=2,
+                )
+                self.assertEqual(response["type"], "error")
+
+            await communicator.disconnect()
+
+        async_to_sync(run_test)()
+
+        self.assertFalse(
+            Message.objects.filter(
+                conversation=self.conversation,
+            ).exists()
+        )
+
+    
+    def test_session_cookie_authenticates_websocket(self):
+        self.client.force_login(self.requester)
+        session_cookie = self.client.cookies[
+            settings.SESSION_COOKIE_NAME
+        ].value
+
+        async def run_test():
+            application = AuthMiddlewareStack(
+                URLRouter(websocket_urlpatterns)
+            )
+            communicator = WebsocketCommunicator(
+                application,
+                f"/ws/chat/{self.conversation.pk}/",
+                headers=[
+                    (
+                        b"cookie",
+                        (
+                            f"{settings.SESSION_COOKIE_NAME}="
+                            f"{session_cookie}"
+                        ).encode(),
+                    ),
+                ],
+            )
+
+            connected, _ = await communicator.connect()
+            self.assertTrue(connected)
+            await communicator.disconnect()
+
+        async_to_sync(run_test)()
+
+    
+    def test_http_form_message_is_broadcast_to_websocket_clients(self):
+        self.client.force_login(self.requester)
+
+        async def run_test():
+            communicator = self.make_communicator(self.owner)
+            connected, _ = await communicator.connect()
+            self.assertTrue(connected)
+
+            response = await sync_to_async(
+                self.client.post,
+                thread_sensitive=True,
+            )(
+                reverse(
+                    "chat:conversation_detail",
+                    args=[self.conversation.pk],
+                ),
+                {"body": "Sent through the existing form"},
+            )
+
+            self.assertEqual(response.status_code, 302)
+
+            event = await communicator.receive_json_from(timeout=2)
+
+            self.assertEqual(event["type"], "message")
+            self.assertEqual(
+                event["message"]["body"],
+                "Sent through the existing form",
+            )
+            self.assertEqual(
+                event["message"]["sender_id"],
+                self.requester.pk,
+            )
+
+            await communicator.disconnect()
+
+        async_to_sync(run_test)()
+
+        message = Message.objects.get(
+            conversation=self.conversation,
+        )
+        self.assertEqual(message.sender, self.requester)

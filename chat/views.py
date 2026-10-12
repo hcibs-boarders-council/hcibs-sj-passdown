@@ -1,3 +1,7 @@
+import logging
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -13,7 +17,40 @@ from .forms import MessageForm
 from .models import Conversation, Message
 from django.db.models import Count, F, FilteredRelation, Prefetch, Q
 
+logger = logging.getLogger(__name__)
 
+
+def _broadcast_message(message):
+    channel_layer = get_channel_layer()
+
+    if channel_layer is None:
+        return
+
+    event = {
+        "id": message.pk,
+        "sender_id": message.sender_id,
+        "sender_name": message.sender.get_username(),
+        "body": message.body,
+        "created_at": message.created_at.isoformat(),
+        "display_time": date_format(
+            message.created_at,
+            "j M, g:i a",
+        ),
+    }
+
+    try:
+        async_to_sync(channel_layer.group_send)(
+            f"chat_conversation_{message.conversation_id}",
+            {
+                "type": "chat.message",
+                "message": event,
+            },
+        )
+    except Exception:
+        logger.exception(
+            "Failed to broadcast chat message %s",
+            message.pk,
+        )
 
 @login_required(login_url='login')
 @require_http_methods(['GET'])
@@ -104,17 +141,17 @@ def conversation_detail(request, pk):
 
         if form.is_valid():
             with transaction.atomic():
-                Message.objects.create(
+                message = Message.objects.create(
                     conversation=conversation,
                     sender=request.user,
                     body=form.cleaned_data['body'],
                 )
-
                 Conversation.objects.filter(pk=conversation.pk).update(
                     updated_at=timezone.now(),
                 )
-
                 conversation.mark_read(request.user)
+
+            _broadcast_message(message)
 
             return redirect(
                 'chat:conversation_detail',

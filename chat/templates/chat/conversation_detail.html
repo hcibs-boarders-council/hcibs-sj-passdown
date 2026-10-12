@@ -16,6 +16,7 @@
     aria-labelledby="chat-title"
     data-chat-poll-url="{% url 'chat:conversation_messages' conversation.pk %}"
     data-chat-read-url="{% url 'chat:conversation_mark_read' conversation.pk %}"
+    data-chat-websocket-url="/ws/chat/{{ conversation.pk }}/"
     data-current-user-id="{{ request.user.id }}"
 >
     <a class="chat-thread__back" href="{% url 'chat:conversation_list' %}">← All chats</a>
