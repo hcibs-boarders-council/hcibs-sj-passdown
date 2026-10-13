@@ -5,7 +5,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{% block title %}SJ Passdown{% endblock %}</title>
         <meta name="description" content="SJ Passdown — free items passed down from HCIBS boarders">
-        <link rel="icon" href="{% static 'img/logo.jpeg' %}" type="image/jpeg">
+        <meta name="theme-color" content="#f7ecdc">
+        <link rel="icon" href="{% static 'img/favicon-32.png' %}" type="image/png" sizes="32x32">
+        <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
 
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,12 +18,15 @@
         {% block extra_css %}{% endblock %}
     </head>
     <body class="{% block body_class %}{% endblock %}">
+        <a class="skip-link" href="#main-content">Skip to main content</a>
+
         <div class="page-frame">
             {% block navbar %}
             {% include 'partials/navbar.html' %}
             {% endblock %}
 
-            <main class="page-main" id="main-content">
+            <main class="page-main" id="main-content" tabindex="-1">
+                {% include 'partials/messages.html' %}
                 {% block content %}{% endblock %}
             </main>
 
@@ -30,6 +35,7 @@
             {% endblock %}
         </div>
 
+        <script src="{% static 'js/ui.js' %}" defer></script>
         <script src="{% static 'js/nav.js' %}" defer></script>
         {% block extra_js %}{% endblock %}
     </body>

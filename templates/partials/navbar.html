@@ -10,8 +10,11 @@
     <a class="site-brand" href="{% url 'home' %}" aria-label="SJ Passdown home">
         <img
             class="site-brand__logo"
-            src="{% static 'img/logo.jpeg' %}"
-            alt="SJ Passdown"
+            src="{% static 'img/logo-64.png' %}"
+            srcset="{% static 'img/logo-64.png' %} 1x, {% static 'img/logo-128.png' %} 2x"
+            width="34"
+            height="34"
+            alt=""
         >
         <span class="site-brand__name">SJ Passdown</span>
     </a>
@@ -81,17 +84,17 @@
                     <p class="profile-dropdown__meta">HCIBS student</p>
                 </div>
             </div>
-            <a href="{% url 'account_detail' %}" class="profile-dropdown__item">
+            <a href="{% url 'account_detail' %}" class="profile-dropdown__item"{% if current == 'account_detail' %} aria-current="page"{% endif %}>
                 {% include 'partials/icon.html' with name='user' %}
                 Account Details
             </a>
 
-            <a href="{% url 'my_posts' %}" class="profile-dropdown__item">
+            <a href="{% url 'my_posts' %}" class="profile-dropdown__item"{% if current == 'my_posts' %} aria-current="page"{% endif %}>
                 {% include 'partials/icon.html' with name='grid' %}
                 My Posts
             </a>
 
-            <a href="{% url 'my_claims' %}" class="profile-dropdown__item">
+            <a href="{% url 'my_claims' %}" class="profile-dropdown__item"{% if current == 'my_claims' %} aria-current="page"{% endif %}>
                 {% include 'partials/icon.html' with name='clock' %}
                 My Claims
             </a>

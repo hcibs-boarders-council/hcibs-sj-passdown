@@ -1,143 +1,148 @@
+/* ==========================================================================
+   Account pages — Account Details, My Posts, My Claims.
+   Uses the shared tokens from base.css (no page-local colour values).
+   ========================================================================== */
 
 .account-page {
-    width: min(100% - 2rem, 900px);
+    width: min(100%, 1040px);
     margin: 0 auto;
-    padding: 2.5rem 0 4rem;
 }
 
-.account-page__header {
-    margin-bottom: 2rem;
+/* Account details ------------------------------------------------------- */
+
+.account-layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: clamp(14px, 2vw, 22px);
+    align-items: start;
 }
 
-.account-page__header h1 {
-    margin: 0.35rem 0 0.75rem;
+.account-summary {
+    display: grid;
+    justify-items: start;
+    gap: 14px;
 }
 
-.account-page__header > p:last-child {
-    color: var(--text-muted, #686868);
+.account-summary__text {
+    min-width: 0;
+}
+
+.account-summary__name {
+    color: var(--red-dark);
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.account-summary__meta {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.account-summary__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.account-summary__links .btn {
+    background: var(--cream);
 }
 
 .account-form {
-    max-width: 600px;
-    display: grid;
-    gap: 1.25rem;
+    max-width: 680px;
 }
 
-.account-form__field {
-    display: grid;
-    gap: 0.45rem;
-}
-
-.account-form__field label {
-    font-weight: 600;
-}
-
-.account-form__field input {
-    width: 100%;
-    min-height: 44px;
-    padding: 0.7rem 0.8rem;
-    border: 1px solid var(--border, #dedede);
-    border-radius: 6px;
-    background: white;
-    color: inherit;
-    font: inherit;
-}
-
-.account-form__field input:focus-visible {
-    outline: 2px solid var(--accent, #d66b58);
-    outline-offset: 2px;
-}
-
-.account-notice,
-.account-errors {
-    max-width: 600px;
-    margin: 0 0 1.25rem;
-    padding: 0.85rem 1rem;
-    border: 1px solid var(--border, #dedede);
-    border-radius: 6px;
-}
-
-.account-notice--success {
-    border-color: #6d9b7b;
-}
-
-.account-notice--error,
-.account-errors {
-    border-color: #c65b52;
-}
+/* Lists (My Posts / My Claims) ------------------------------------------ */
 
 .account-list {
     display: grid;
-    gap: 1rem;
+    gap: 14px;
 }
 
 .account-card {
     display: grid;
     grid-template-columns: 150px minmax(0, 1fr);
-    gap: 1.25rem;
-    padding: 1.25rem;
-    border: 1px solid var(--border, #dedede);
-    border-radius: 8px;
-    background: var(--surface, #fff);
+    gap: clamp(14px, 2vw, 20px);
+    padding: clamp(14px, 2vw, 20px);
+    border-radius: var(--radius);
+    background: var(--paper);
 }
 
 .account-card__image {
     width: 100%;
     aspect-ratio: 1;
     object-fit: cover;
-    border-radius: 5px;
+    border-radius: var(--radius-sm);
+    background: var(--sand);
 }
 
 .account-card__image--empty {
     display: grid;
     place-items: center;
-    background: var(--surface-muted, #f4f1ef);
-    color: var(--text-muted, #686868);
-    font-size: 0.875rem;
+    padding: 18%;
 }
 
 .account-card__content {
+    display: grid;
+    align-content: start;
+    gap: 6px;
     min-width: 0;
 }
 
 .account-card__eyebrow,
 .account-card__meta {
-    color: var(--text-muted, #686868);
-    font-size: 0.875rem;
+    color: var(--muted);
+    font-size: 13px;
 }
 
 .account-card__title {
-    margin: 0.35rem 0 0.6rem;
+    color: var(--red-dark);
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.2;
     overflow-wrap: anywhere;
 }
 
 .account-card__description {
-    line-height: 1.6;
+    color: var(--ink-soft);
+    line-height: 1.55;
     overflow-wrap: anywhere;
 }
 
-.account-card__claims {
-    margin-top: 1rem;
+/* Legacy list markup kept styled until the list templates move to shared components. */
+.account-page__header {
+    display: grid;
+    gap: 8px;
+    margin-bottom: clamp(20px, 3vw, 32px);
+}
+
+.account-page__header > p:last-child {
+    color: var(--ink-soft);
+}
+
+.account-empty {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    padding: clamp(32px, 5vw, 56px) 24px;
+    border: 1px dashed var(--red-line);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+    text-align: center;
 }
 
 .account-card__claims summary {
     cursor: pointer;
+    color: var(--red-dark);
     font-weight: 600;
 }
 
 .account-card__claims li {
-    margin-top: 0.75rem;
-}
-
-.account-empty {
-    padding: 2.5rem 1.5rem;
-    border: 1px solid var(--border, #dedede);
-    border-radius: 8px;
-    text-align: center;
-}
-
-.account-empty p {
-    margin-bottom: 1.25rem;
+    margin-top: 10px;
 }
 
 .account-pagination {
@@ -145,19 +150,20 @@
     align-items: center;
     justify-content: center;
     flex-wrap: wrap;
-    gap: 1rem;
-    margin-top: 2rem;
+    gap: 12px;
+    margin-top: 24px;
+    color: var(--ink-soft);
+    font-size: 14px;
+}
+
+@media (max-width: 760px) {
+    .account-layout {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 600px) {
-    .account-page {
-        width: min(100% - 1.25rem, 900px);
-        padding-top: 1.75rem;
-    }
-
     .account-card {
-        grid-template-columns: 96px minmax(0, 1fr);
-        gap: 0.85rem;
-        padding: 0.85rem;
+        grid-template-columns: 88px minmax(0, 1fr);
     }
 }

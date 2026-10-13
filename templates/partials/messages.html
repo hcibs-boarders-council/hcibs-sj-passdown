@@ -1,0 +1,17 @@
+{% comment %}
+Flash messages from django.contrib.messages, rendered once per request in base.html.
+Iterating `messages` marks them as used, so they never re-appear on a later page.
+The dismiss button is revealed by ui.js (it would do nothing without JavaScript).
+{% endcomment %}{% if messages %}
+<div class="flash-stack" data-flash-stack>
+    {% for message in messages %}
+    {% with level=message.level_tag|default:'info' %}
+    <div class="alert alert--{{ level }}" role="{% if level == 'error' or level == 'warning' %}alert{% else %}status{% endif %}" data-alert>
+        <span class="alert__icon" aria-hidden="true">{% if level == 'success' %}{% include 'partials/icon.html' with name='check' %}{% elif level == 'error' or level == 'warning' %}{% include 'partials/icon.html' with name='alert' %}{% else %}{% include 'partials/icon.html' with name='info' %}{% endif %}</span>
+        <p class="alert__text">{{ message }}</p>
+        <button class="alert__close" type="button" aria-label="Dismiss message" data-alert-dismiss hidden>{% include 'partials/icon.html' with name='close' %}</button>
+    </div>
+    {% endwith %}
+    {% endfor %}
+</div>
+{% endif %}

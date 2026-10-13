@@ -1,0 +1,19 @@
+{% comment %}
+Renders one bound form field: label, widget, help text, optional character counter, errors.
+
+Usage:
+    {% include 'partials/form_field.html' with field=form.title counter=True %}
+
+Django adds aria-describedby="<id>_helptext <id>_error" to widgets, so the help text
+uses that exact id and {{ field.errors }} renders with id="<id>_error".
+{% endcomment %}<div class="field{% if field.errors %} field--error{% endif %}{% if field_class %} {{ field_class }}{% endif %}">
+    <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required %} <span class="field__optional">(optional)</span>{% endif %}</label>
+    {{ field }}
+    {% if field.help_text or counter %}
+    <div class="field__meta">
+        {% if field.help_text %}<p class="field__help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</p>{% endif %}
+        {% if counter %}<p class="field__counter" data-counter-for="{{ field.id_for_label }}" aria-hidden="true" hidden></p>{% endif %}
+    </div>
+    {% endif %}
+    {{ field.errors }}
+</div>

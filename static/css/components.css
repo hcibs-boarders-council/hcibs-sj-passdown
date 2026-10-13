@@ -34,6 +34,56 @@
     font-size: 11px;
 }
 
+/* Shared page primitives -------------------------------------------------- */
+
+.page-header {
+    display: grid;
+    gap: 8px;
+    margin-bottom: clamp(20px, 3vw, 32px);
+}
+
+.page-header__lead {
+    max-width: 62ch;
+    color: var(--ink-soft);
+}
+
+.card {
+    min-width: 0;
+    padding: clamp(18px, 2.4vw, 28px);
+    border-radius: var(--radius);
+    background: var(--paper);
+}
+
+.form-stack {
+    display: grid;
+    gap: 14px;
+}
+
+.field-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.text-link {
+    color: var(--red-dark);
+    font-weight: 600;
+    text-underline-offset: 3px;
+}
+
+.text-link:hover {
+    color: var(--red-ink);
+}
+
 /* Navbar ------------------------------------------------------------------ */
 
 .site-nav {
@@ -62,19 +112,12 @@
     text-decoration: none;
 }
 
-.site-brand__mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
+.site-brand__logo {
+    flex: none;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    background: var(--pink);
-    color: var(--red);
-    font-family: var(--font-display);
-    font-size: 15px;
-    font-style: italic;
-    font-weight: 600;
+    object-fit: contain;
 }
 
 .site-brand__name {
@@ -102,7 +145,7 @@
     border: none;
     border-radius: var(--pill);
     background: transparent;
-    color: var(--red);
+    color: var(--red-ink);
     font-size: 13px;
     font-weight: 500;
     text-decoration: none;
@@ -117,6 +160,11 @@
 .nav-pill.is-active {
     background: var(--red);
     color: #fff;
+}
+
+.nav-pill.is-active .chat-unread {
+    background: #fff;
+    color: var(--red-ink);
 }
 
 .site-nav__actions {
@@ -221,13 +269,17 @@
     border-bottom: 1px solid var(--paper-2);
 }
 
+.profile-dropdown__head > div {
+    min-width: 0;
+}
+
 .profile-dropdown__name {
-    color: var(--red);
+    color: var(--red-dark);
     font-family: var(--font-display);
     font-size: 16px;
     font-weight: 600;
     line-height: 1.2;
-    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .profile-dropdown__meta {
@@ -253,21 +305,25 @@
     color: var(--ink-soft);
     font-size: 14px;
     text-align: left;
+    text-decoration: none;
+    cursor: pointer;
 }
 
 .profile-dropdown__item .icon {
-    color: var(--red);
+    flex: none;
+    color: var(--red-dark);
     width: 17px;
     height: 17px;
 }
 
-.profile-dropdown__item:hover {
+.profile-dropdown__item:hover,
+.profile-dropdown__item[aria-current="page"] {
     background: var(--pink-soft);
     color: var(--ink);
 }
 
 .profile-dropdown__item--danger {
-    color: var(--red);
+    color: var(--red-dark);
     font-weight: 600;
 }
 
@@ -278,7 +334,7 @@
     padding: clamp(28px, 3.6vw, 48px) clamp(22px, 3.6vw, 48px) 22px;
     border-radius: var(--radius-lg);
     background: var(--red);
-    color: #fbe6dc;
+    color: #fff;
 }
 
 .site-footer__top {
@@ -358,7 +414,6 @@
     gap: 8px 20px;
     padding-top: 16px;
     font-size: 12px;
-    opacity: 0.85;
 }
 
 /* Info pills (accordion pills from the reference) ------------------------- */
@@ -389,7 +444,7 @@
     gap: 12px;
     min-height: 42px;
     padding: 6px 7px 6px 20px;
-    color: var(--red);
+    color: var(--red-ink);
     font-family: var(--font-display);
     font-size: 15.5px;
     font-weight: 500;
@@ -466,7 +521,7 @@
 }
 
 .item-card__link:focus-visible {
-    outline: 3px solid var(--red);
+    outline: 3px solid var(--red-dark);
     outline-offset: -3px;
 }
 
@@ -549,7 +604,7 @@
 
 .item-card__title {
     min-width: 0;
-    color: var(--red);
+    color: var(--red-dark);
     font-family: var(--font-display);
     font-size: 17px;
     font-weight: 500;
@@ -559,7 +614,7 @@
 
 .item-card__cat {
     flex: none;
-    color: var(--red);
+    color: var(--red-dark);
     font-family: var(--font-display);
     font-size: 13px;
     font-style: italic;
@@ -644,7 +699,7 @@
     .site-nav__toggle {
         display: inline-flex;
         background: var(--pink);
-        color: var(--red);
+        color: var(--red-ink);
     }
 
     .site-nav__toggle:hover {
@@ -661,10 +716,6 @@
 
     .site-brand {
         justify-self: center;
-    }
-
-    .site-brand__mark {
-        display: none;
     }
 
     .site-nav__links {
@@ -701,6 +752,10 @@
 }
 
 @media (max-width: 560px) {
+    .field-row {
+        grid-template-columns: 1fr;
+    }
+
     .site-nav__search {
         display: none;
     }
@@ -739,17 +794,5 @@
         background: var(--paper);
         box-shadow: 0 8px 24px rgba(40, 20, 20, 0.12);
     }
-}
-
-.site-brand__logo {
-    display: block !important;
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    max-width: 32px !important;
-    min-height: 32px !important;
-    max-height: 32px !important;
-    object-fit: contain !important;
-    flex: 0 0 32px !important;
 }
 

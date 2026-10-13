@@ -1,4 +1,3 @@
-
 {% extends 'base.html' %}
 {% load static %}
 
@@ -12,55 +11,46 @@
 
 {% block content %}
 <section class="account-page" aria-labelledby="account-title">
-    <header class="account-page__header">
+    <header class="page-header">
         <p class="eyebrow">Your profile</p>
         <h1 class="display" id="account-title">Account Details</h1>
-        <p>Manage the details associated with your account.</p>
+        <p class="page-header__lead">Manage the details associated with your account.</p>
     </header>
 
-    {% if messages %}
-        {% for message in messages %}
-            <p class="account-notice account-notice--{{ message.tags }}"
-               role="status">{{ message }}</p>
-        {% endfor %}
-    {% endif %}
-
-    <form class="account-form" method="post">
-        {% csrf_token %}
-
-        {% if form.non_field_errors %}
-            <div class="account-errors" role="alert">
-                {{ form.non_field_errors }}
+    <div class="account-layout">
+        <aside class="card account-summary" aria-label="Your account">
+            <span class="avatar avatar--lg" aria-hidden="true">{{ user.username|first|upper }}</span>
+            <div class="account-summary__text">
+                <p class="account-summary__name">{{ user.username }}</p>
+                <p class="account-summary__meta">Member since {{ user.date_joined|date:"j M Y" }}</p>
             </div>
-        {% endif %}
+            <nav class="account-summary__links" aria-label="Your activity">
+                <a class="btn btn--soft btn--sm" href="{% url 'my_posts' %}">{% include 'partials/icon.html' with name='grid' %}My Posts</a>
+                <a class="btn btn--soft btn--sm" href="{% url 'my_claims' %}">{% include 'partials/icon.html' with name='clock' %}My Claims</a>
+            </nav>
+        </aside>
 
-        <div class="account-form__field">
-            <label for="{{ form.first_name.id_for_label }}">First name</label>
-            {{ form.first_name }}
-            {% for error in form.first_name.errors %}
-                <p class="form-error">{{ error }}</p>
-            {% endfor %}
-        </div>
+        <form class="card account-form form-stack" method="post" novalidate data-submit-once>
+            {% csrf_token %}
 
-        <div class="account-form__field">
-            <label for="{{ form.last_name.id_for_label }}">Last name</label>
-            {{ form.last_name }}
-            {% for error in form.last_name.errors %}
-                <p class="form-error">{{ error }}</p>
-            {% endfor %}
-        </div>
+            {% if form.non_field_errors %}
+            <ul class="form-errors" role="alert">
+                {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+            </ul>
+            {% endif %}
 
-        <div class="account-form__field">
-            <label for="{{ form.email.id_for_label }}">Email address</label>
-            {{ form.email }}
-            {% for error in form.email.errors %}
-                <p class="form-error">{{ error }}</p>
-            {% endfor %}
-        </div>
+            <div class="field-row">
+                {% include 'partials/form_field.html' with field=form.first_name %}
+                {% include 'partials/form_field.html' with field=form.last_name %}
+            </div>
+            {% include 'partials/form_field.html' with field=form.email %}
 
-        <button class="btn btn--primary" type="submit">
-            Save changes
-        </button>
-    </form>
+            <p class="field__help">Your username ({{ user.username }}) is how other students see you and can't be changed here.</p>
+
+            <div class="form-actions">
+                <button class="btn btn--primary" type="submit">Save changes</button>
+            </div>
+        </form>
+    </div>
 </section>
 {% endblock %}
