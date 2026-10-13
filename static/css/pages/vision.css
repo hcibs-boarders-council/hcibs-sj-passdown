@@ -1,0 +1,195 @@
+/* ==========================================================================
+   Our Vision — mission, values, how it works, community guidelines.
+   Uses the shared tokens from base.css.
+   ========================================================================== */
+
+.vision {
+    display: grid;
+    gap: clamp(36px, 5vw, 64px);
+}
+
+/* Hero -------------------------------------------------------------------- */
+
+.vision-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+    gap: clamp(20px, 3vw, 40px);
+    align-items: center;
+    padding: clamp(14px, 1.4vw, 18px);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+}
+
+.vision-hero__copy {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+    padding: clamp(10px, 2.4vw, 32px) clamp(6px, 1.6vw, 24px);
+}
+
+.vision-hero__title {
+    max-width: 15ch;
+}
+
+.vision-hero__lead {
+    max-width: 58ch;
+    color: var(--ink-soft);
+    font-size: 16px;
+}
+
+.vision-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.vision-hero__art {
+    display: grid;
+    place-items: center;
+    min-height: 260px;
+    padding: clamp(16px, 3vw, 32px);
+    border-radius: var(--radius);
+    background: var(--yellow);
+}
+
+.vision-hero__art .category-art {
+    width: min(100%, 240px);
+}
+
+/* Sections ---------------------------------------------------------------- */
+
+.vision-section {
+    display: grid;
+    gap: 18px;
+    scroll-margin-top: 24px;
+}
+
+.vision-values {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.vision-value {
+    padding: clamp(18px, 2.2vw, 26px);
+    border-radius: var(--radius);
+    background: var(--pink);
+}
+
+.vision-value--blue { background: var(--blue); }
+.vision-value--yellow { background: var(--yellow); }
+
+.vision-value__title {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.vision-value p {
+    margin-top: 8px;
+    color: var(--ink);
+    font-size: 14.5px;
+}
+
+.vision-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    counter-reset: vision-step;
+}
+
+.vision-step {
+    position: relative;
+    padding: 58px 18px 20px;
+    border-radius: var(--radius);
+    background: var(--paper);
+    counter-increment: vision-step;
+}
+
+.vision-step::before {
+    content: counter(vision-step);
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--red);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.vision-step__title {
+    color: var(--red-dark);
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.vision-step p {
+    margin-top: 6px;
+    color: var(--ink-soft);
+    font-size: 14px;
+}
+
+.vision-guidelines {
+    display: grid;
+    gap: 10px;
+    max-width: 820px;
+}
+
+.vision-guidelines li {
+    position: relative;
+    padding: 14px 18px 14px 42px;
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--ink-soft);
+}
+
+.vision-guidelines li::before {
+    content: "";
+    position: absolute;
+    top: 22px;
+    left: 20px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--red);
+}
+
+.vision-guidelines strong {
+    color: var(--ink);
+}
+
+/* Responsive -------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+    .vision-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .vision-hero__art {
+        min-height: 200px;
+    }
+
+    .vision-values {
+        grid-template-columns: 1fr;
+    }
+
+    .vision-steps {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .vision-steps {
+        grid-template-columns: 1fr;
+    }
+}

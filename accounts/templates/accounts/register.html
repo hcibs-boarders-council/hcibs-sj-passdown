@@ -21,13 +21,14 @@
 </ul>
 {% endif %}
 
-<form method="post" class="form-stack" novalidate>
+<form method="post" class="form-stack" novalidate data-submit-once>
     {% csrf_token %}
 
     <div class="field-row">
         <div class="field">
             <label for="id_username">Username</label>
-            <input type="text" id="id_username" name="username" placeholder="Pick a username" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false">
+            <input type="text" id="id_username" name="username" placeholder="Pick a username" value="{{ username }}" maxlength="150" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="id_username_helptext">
+            <p class="field__help" id="id_username_helptext">Letters, numbers and @ . + - _ only. Other students see this name.</p>
         </div>
 
         <div class="field">

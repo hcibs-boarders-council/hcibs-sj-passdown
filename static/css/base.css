@@ -69,6 +69,9 @@ body {
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+    /* Safety net: long unbroken words (usernames, links) wrap instead of
+       overflowing. Components that clamp or ellipsise override this. */
+    overflow-wrap: break-word;
 }
 
 img,

@@ -38,6 +38,11 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+### (3b) Things the app needs running
+- **Python 3.13** (the pinned Django 6.1 needs Python 3.12 or newer)
+- **PostgreSQL**: by default the app connects to `hcibs_sj_passdown` on `localhost:5432` as `hcibs_sj_user`. Override with `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, or set a single `DATABASE_URL=postgres://user:pass@host:5432/dbname`.
+- **Redis**: live chat and notifications use Django Channels over Redis (`redis://127.0.0.1:6379/0` by default, or set `REDIS_URL`). On a Mac: `brew services start redis`, then `redis-cli ping` should say `PONG`.
+
 ## Step 4: Make sure to branch out, please don't work in main I'll cry 🙏
 ```bash
 git checkout -b your-branch-name
@@ -59,64 +64,44 @@ python3 manage.py migrate
 ```bash
 python3 manage.py runserver
 ```
+`daphne` is listed first in `INSTALLED_APPS`, so `runserver` also serves the WebSockets used by live chat. Make sure Redis is running first.
+
+#### Run the tests:
+```bash
+python3 manage.py test
+```
+The tests create (and then delete) a separate `test_hcibs_sj_passdown` database, so your Postgres user needs the CREATEDB permission. They use an in-memory channel layer, so Redis isn't needed for tests.
 
 ### (5b) Structure of the current repo
 ```text
 .
-├── README.md
-├── accounts
-│   ├── __init__.py
-│   ├── admin.py
-│   ├── apps.py
-│   ├── forms.py
-│   ├── migrations
-│   │   ├── 0001_initial.py
-│   │   └── __init__.py
-│   ├── models.py
-│   ├── templates
-│   │   └── accounts
-│   │       ├── home.html
-│   │       ├── item_form.html
-│   │       ├── login.html
-│   │       └── register.html
-│   ├── tests.py
-│   ├── urls.py
-│   └── views.py
-├── config
-│   ├── __init__.py
-│   ├── asgi.py
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
-├── db.sqlite3
+├── config/                 project settings, URLs, ASGI (HTTP + WebSockets) and WSGI entry points
+├── accounts/               login, register, logout, Account Details, My Posts, My Claims, Our Vision
+│   └── templates/accounts/ (home.html is the Home page; its view lives in listings)
+├── listings/               items, photos and claims
+│   ├── models.py           Item, ItemPhoto, Claim
+│   ├── forms.py            ItemForm (photo limits) and ClaimForm
+│   ├── images.py           strips photo metadata and caps photo size on upload
+│   ├── views.py            Home (search + filters), Post Item, item page, claim actions
+│   └── templates/listings/
+├── chat/                   conversations and live updates
+│   ├── services.py         shared logic: sending, read state, unread counts, live events
+│   ├── consumers.py        WebSocket consumers (one conversation, per-user notifications)
+│   ├── views.py            chat pages + JSON endpoints used when the socket is down
+│   └── templates/chat/
+├── templates/
+│   ├── base.html           page shell (navbar, flash messages, footer, shared scripts)
+│   ├── layouts/            form_page.html (Login, Register, Post Item)
+│   └── partials/           navbar, footer, item card, form field, icons, pagination…
+├── static/
+│   ├── css/                base.css (tokens, buttons, forms), components.css (shared UI), pages/*.css
+│   ├── js/                 ui.js, nav.js, realtime.js, chat.js, home_filters.js, item_form.js, item_gallery.js
+│   └── img/
 ├── manage.py
-├── requirements.txt
-├── static
-│   ├── css
-│   │   ├── base.css
-│   │   ├── components.css
-│   │   └── pages
-│   │       ├── auth.css
-│   │       └── home.css
-│   ├── img
-│   │   └── logo.jpeg
-│   └── js
-│       ├── item_form.js
-│       └── nav.js
-└── templates
-    ├── base.html
-    ├── layouts
-    │   └── form_page.html
-    └── partials
-        ├── category_art.html
-        ├── footer.html
-        ├── icon.html
-        ├── info_pills.html
-        ├── item_card.html
-        └── navbar.html
+└── requirements.txt
 ```
 
-Take note of the three main areas: global project files, the `config` project-wide configuration, and individual Django apps such as the `accounts` folder.
+Take note of the three main areas: global project files, the `config` project-wide configuration, and the individual Django apps (`accounts`, `listings`, `chat`). Page-specific styles go in `static/css/pages/`, anything reused goes in `components.css`, and every script is progressive enhancement: pages still work without JavaScript.
 
 ## Step 6: Commit, Push Changes & Create a Pull Request
 Send your local branch up to be reviewed and merged:
@@ -127,3 +112,9 @@ git commit -m "Whatever-feature-or-description-you-added"
 git push -u origin your-branch-name
 ```
 After pushing, go to the [GitHub Repository](https://github.com/hcibs-boarders-council/hcibs-sj-passdown.git) page and click **"Compare & pull request"** to submit your changes for review!
+
+## Notes for deployment
+- Set `DJANGO_ENV=production`, `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DATABASE_URL` and `REDIS_URL`. The settings refuse to start in production without them.
+- Serve the app with Daphne (`daphne -b 0.0.0.0 -p 8000 config.asgi:application`) behind a reverse proxy that forwards WebSocket upgrades for `/ws/` and sets `X-Forwarded-Proto`.
+- Run `python manage.py collectstatic` and serve `staticfiles/` and `media/` from the proxy or a storage service.
+- `python manage.py check --deploy` still flags the console email backend (`MAILERS`) and HSTS / SSL-redirect settings. Configure these for your host before going live.

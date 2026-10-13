@@ -21,7 +21,7 @@
 </ul>
 {% endif %}
 
-<form method="post" class="form-stack" novalidate>
+<form method="post" class="form-stack" novalidate data-submit-once>
     {% csrf_token %}
     {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 

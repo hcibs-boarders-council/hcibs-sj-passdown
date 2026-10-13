@@ -1,13 +1,84 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Our Vision — SJ Passdown{% endblock %}
 
-{% block body_class %}page-auth page-our-vision{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/pages/vision.css' %}">
+{% endblock %}
+
+{% block body_class %}page-vision{% endblock %}
 
 {% block content %}
-<div class="page-content">
-    <div class="container">
-        <h1>Our Vision</h1>
-    </div>
-</div>
+{% comment %}
+Draft copy written from the project's mission (decision D10) — edit freely.
+The #how-it-works and #guidelines anchors are linked from the footer and the
+info pills.
+{% endcomment %}
+<article class="vision" aria-labelledby="vision-title">
+    <header class="vision-hero">
+        <div class="vision-hero__copy">
+            <p class="eyebrow">{% include 'partials/icon.html' with name='sparkle' %} Our Vision</p>
+            <h1 class="display vision-hero__title" id="vision-title">Good things deserve a second term</h1>
+            <p class="vision-hero__lead">Every year, HCIBS seniors move on and leave behind textbooks, uniforms, stationery and everyday essentials that the juniors arriving next still need. SJ Passdown makes passing them on easy: free, and from one student to another.</p>
+            <div class="vision-hero__actions">
+                <a class="btn btn--primary" href="{% url 'home' %}">Browse passdowns</a>
+                <a class="btn btn--ghost" href="{% if user.is_authenticated %}{% url 'item_create' %}{% else %}{% url 'login' %}?next={% url 'item_create' %}{% endif %}">Post an item</a>
+            </div>
+        </div>
+        <div class="vision-hero__art" aria-hidden="true">
+            {% include 'partials/category_art.html' with category='other' %}
+        </div>
+    </header>
+
+    <section class="vision-section" aria-labelledby="values-title">
+        <h2 class="section-title" id="values-title">What we believe</h2>
+        <ul class="vision-values" role="list">
+            <li class="vision-value">
+                <h3 class="vision-value__title">Less waste</h3>
+                <p>Useful things shouldn't end up in the bin when a senior moves out. Passing them down keeps them in use for another year.</p>
+            </li>
+            <li class="vision-value vision-value--blue">
+                <h3 class="vision-value__title">Free for every junior</h3>
+                <p>Nothing here is bought or sold. Items are given away, so no one misses out because of cost.</p>
+            </li>
+            <li class="vision-value vision-value--yellow">
+                <h3 class="vision-value__title">Seniors looking out for juniors</h3>
+                <p>A small handover is a big welcome. Every passdown is a senior helping someone new settle in.</p>
+            </li>
+        </ul>
+    </section>
+
+    <section class="vision-section" id="how-it-works" aria-labelledby="how-title">
+        <h2 class="section-title" id="how-title">How it works</h2>
+        <ol class="vision-steps" role="list">
+            <li class="vision-step">
+                <h3 class="vision-step__title">Post</h3>
+                <p>Add a few photos and an honest description of something you no longer need.</p>
+            </li>
+            <li class="vision-step">
+                <h3 class="vision-step__title">Claim</h3>
+                <p>Juniors browse or search the listings and send a claim with a short note.</p>
+            </li>
+            <li class="vision-step">
+                <h3 class="vision-step__title">Choose</h3>
+                <p>The owner looks through the claims and reserves the item for one student.</p>
+            </li>
+            <li class="vision-step">
+                <h3 class="vision-step__title">Hand it over</h3>
+                <p>Chat to arrange collection, meet up, and mark the item as passed on.</p>
+            </li>
+        </ol>
+    </section>
+
+    <section class="vision-section" id="guidelines" aria-labelledby="guidelines-title">
+        <h2 class="section-title" id="guidelines-title">Community guidelines</h2>
+        <ul class="vision-guidelines" role="list">
+            <li><strong>Keep it private.</strong> Don't post or share private information about yourself or other people.</li>
+            <li><strong>Keep it kind.</strong> No profanities, offensive material or other inappropriate content.</li>
+            <li><strong>Describe it honestly.</strong> Mention wear, missing parts or notes inside, so there are no surprises at handover.</li>
+            <li><strong>Follow through.</strong> If you claim something, collect it, or cancel your claim so someone else can have it.</li>
+        </ul>
+    </section>
+</article>
 {% endblock %}

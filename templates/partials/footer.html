@@ -24,8 +24,13 @@
             <div class="site-footer__col">
                 <h2 class="site-footer__heading">Community</h2>
                 <ul>
-                    <li><span class="is-soon">Guidelines</span></li>
-                    <li><span class="is-soon">Chat</span></li>
+                    <li><a href="{% url 'our_vision' %}#guidelines">Guidelines</a></li>
+                    <li><a href="{% url 'our_vision' %}#how-it-works">How it works</a></li>
+                    {% if user.is_authenticated %}
+                    <li><a href="{% url 'chat:conversation_list' %}">Chats</a></li>
+                    {% else %}
+                    <li><a href="{% url 'register' %}">Join SJ Passdown</a></li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

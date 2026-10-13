@@ -6,6 +6,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.core.paginator import Paginator
+from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, Exists, IntegerField, OuterRef, Prefetch, Q, Value, When
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import redirect, render
@@ -68,9 +69,26 @@ def logout(request):
     return redirect('home')
 
 
+def _username_errors(username):
+    """Django's own username rules (length + allowed characters), with
+    student-friendly messages, plus a case-insensitive uniqueness check so
+    "Alex" and "alex" can't both exist."""
+    field = User._meta.get_field('username')
+    if len(username) > field.max_length:
+        return [f'Usernames can be at most {field.max_length} characters.']
+    try:
+        for validator in field.validators:
+            validator(username)
+    except ValidationError:
+        return ['Usernames can only contain letters, numbers and @ . + - _ (no spaces).']
+    if User.objects.filter(username__iexact=username).exists():
+        return ['That username is already taken.']
+    return []
+
+
 def register(request):
     if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
+        username = User.normalize_username(request.POST.get('username', '').strip())
         email = request.POST.get('email', '').strip()
         password = request.POST.get('password', '')
         password_confirmation = request.POST.get('password_confirmation', '')
@@ -86,8 +104,8 @@ def register(request):
             errors.append('Password confirmation is required.')
         if password and password_confirmation and password != password_confirmation:
             errors.append('Passwords do not match.')
-        if username and User.objects.filter(username=username).exists():
-            errors.append('That username is already taken.')
+        if username:
+            errors.extend(_username_errors(username))
         if email:
             try:
                 validate_email(email)
@@ -112,13 +130,19 @@ def register(request):
                     )
 
         if not errors:
-            User.objects.create_user(
-                username=username,
-                email=email,
-                password=password,
-            )
-            messages.success(request, 'Your account is ready. Log in to start browsing.')
-            return redirect('login')
+            try:
+                with transaction.atomic():
+                    User.objects.create_user(
+                        username=username,
+                        email=email,
+                        password=password,
+                    )
+            except IntegrityError:
+                # Someone registered the same username a moment earlier.
+                errors.append('That username is already taken.')
+            else:
+                messages.success(request, 'Your account is ready. Log in to start browsing.')
+                return redirect('login')
 
         return render(
             request,

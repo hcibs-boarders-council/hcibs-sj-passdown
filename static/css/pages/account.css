@@ -8,17 +8,7 @@
     margin: 0 auto;
 }
 
-.page-header--split {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-    gap: 16px;
-}
-
-.page-header--split > div {
-    display: grid;
-    gap: 8px;
-    min-width: 0;
-}
+/* .page-header--split lives in components.css (also used by the chat list). */
 
 /* Account details ------------------------------------------------------- */
 
@@ -159,6 +149,7 @@
 .post-card__hint {
     color: var(--ink-soft);
     font-size: 14px;
+    overflow-wrap: anywhere;
 }
 
 .post-card__empty {
@@ -275,15 +266,6 @@
 @media (max-width: 760px) {
     .account-layout {
         grid-template-columns: 1fr;
-    }
-
-    .page-header--split {
-        grid-template-columns: 1fr;
-        align-items: start;
-    }
-
-    .page-header--split > .btn {
-        justify-self: start;
     }
 }
 
