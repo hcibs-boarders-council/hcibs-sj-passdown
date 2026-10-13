@@ -10,63 +10,141 @@
 {% block body_class %}page-item-detail{% endblock %}
 
 {% block content %}
-<section class="item-detail" aria-labelledby="item-title">
-    <div class="item-detail__gallery">
-        <a class="item-detail__back" href="{% url 'home' %}">Back to passdowns</a>
+<a class="back-link" href="{% url 'home' %}">{% include 'partials/icon.html' with name='chevron-left' %}Back to passdowns</a>
 
-        <div class="item-detail__main-image">
-            <img src="{{ active_photo.image.url }}" alt="{{ item.title }} photo {{ active_photo.position|add:'1' }}">
+{% if not is_available %}
+<div class="alert alert--info item-detail__state" role="status">
+    <span class="alert__icon" aria-hidden="true">{% include 'partials/icon.html' with name='info' %}</span>
+    <p class="alert__text">
+        {% if item.status == 'reserved' %}
+        This item is reserved{% if is_owner %}{% for claim in owner_claims %}{% if claim.status == 'approved' %} for {{ claim.claimant.username }}{% endif %}{% endfor %}{% endif %} and isn't open for new claims.
+        {% else %}
+        This item has been passed on to its new owner.
+        {% endif %}
+    </p>
+</div>
+{% endif %}
+
+<article class="item-detail" aria-labelledby="item-title">
+    <section class="item-detail__gallery gallery" aria-label="Photos of {{ item.title }}" data-gallery>
+        <div class="gallery__stage">
+            {% if active_photo %}
+            <img class="gallery__image" src="{{ active_photo.image.url }}" alt="{{ item.title }} — photo {{ active_index|add:1 }} of {{ photos|length }}" data-gallery-image>
+            {% else %}
+            <div class="gallery__placeholder tile--{{ item.category }}">
+                <div class="gallery__placeholder-art" aria-hidden="true">{% include 'partials/category_art.html' with category=item.category %}</div>
+                <p>No photos for this listing</p>
+            </div>
+            {% endif %}
+
+            {% if photos|length > 1 %}
+            <a class="gallery__nav gallery__nav--prev" href="?photo={% if previous_photo %}{{ previous_photo.pk }}{% else %}{{ active_photo.pk }}{% endif %}" aria-label="Previous photo" data-gallery-prev{% if not previous_photo %} aria-disabled="true" tabindex="-1"{% endif %}>{% include 'partials/icon.html' with name='chevron-left' %}</a>
+            <a class="gallery__nav gallery__nav--next" href="?photo={% if next_photo %}{{ next_photo.pk }}{% else %}{{ active_photo.pk }}{% endif %}" aria-label="Next photo" data-gallery-next{% if not next_photo %} aria-disabled="true" tabindex="-1"{% endif %}>{% include 'partials/icon.html' with name='chevron-right' %}</a>
+            <p class="gallery__counter" data-gallery-counter>{{ active_index|add:1 }} / {{ photos|length }}</p>
+            {% endif %}
         </div>
 
         {% if photos|length > 1 %}
-        <div class="item-detail__gallery-controls" aria-label="Photo navigation">
-            {% if previous_photo %}
-            <a class="btn btn--soft btn--sm" href="?photo={{ previous_photo.pk }}">Previous</a>
-            {% else %}
-            <span class="item-detail__nav-spacer" aria-hidden="true"></span>
-            {% endif %}
-
-            <div class="item-detail__thumbnails">
-                {% for photo in photos %}
-                <a class="item-detail__thumbnail{% if photo.pk == active_photo.pk %} item-detail__thumbnail--active{% endif %}" href="?photo={{ photo.pk }}"{% if photo.pk == active_photo.pk %} aria-current="true"{% endif %}>
-                    <img src="{{ photo.image.url }}" alt="Show photo {{ forloop.counter }} of {{ item.title }}">
+        <ul class="gallery__thumbs" aria-label="Choose a photo">
+            {% for photo in photos %}
+            <li>
+                <a class="gallery__thumb{% if photo.pk == active_photo.pk %} is-active{% endif %}" href="?photo={{ photo.pk }}"{% if photo.pk == active_photo.pk %} aria-current="true"{% endif %} data-gallery-thumb data-full="{{ photo.image.url }}" data-index="{{ forloop.counter0 }}">
+                    <img src="{{ photo.image.url }}" alt="Photo {{ forloop.counter }} of {{ photos|length }}" loading="lazy" decoding="async">
                 </a>
-                {% endfor %}
-            </div>
-
-            {% if next_photo %}
-            <a class="btn btn--soft btn--sm" href="?photo={{ next_photo.pk }}">Next</a>
-            {% else %}
-            <span class="item-detail__nav-spacer" aria-hidden="true"></span>
-            {% endif %}
-        </div>
+            </li>
+            {% endfor %}
+        </ul>
         {% endif %}
-    </div>
+    </section>
 
     <div class="item-detail__info">
-        <span class="chip">Free</span>
+        <div class="item-detail__badges">
+            <span class="chip">Free</span>
+            <span class="status-chip status-chip--{{ item.status }}">{{ item.get_status_display }}</span>
+        </div>
         <p class="item-detail__category">{{ item.get_category_display }}</p>
         <h1 class="display item-detail__title" id="item-title">{{ item.title }}</h1>
-        <p class="item-detail__description">{{ item.description|linebreaksbr }}</p>
+        <p class="item-detail__description">{{ item.description }}</p>
 
         <dl class="item-detail__meta">
             <div>
                 <dt>Passed down by</dt>
-                <dd>{{ item.owner.username }}</dd>
+                <dd class="item-detail__owner">
+                    <span class="avatar avatar--xs" aria-hidden="true">{{ item.owner.username|first|upper }}</span>
+                    <span>{{ item.owner.username }}{% if is_owner %} (you){% endif %}</span>
+                </dd>
             </div>
             <div>
                 <dt>Posted</dt>
                 <dd><time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:"j M Y" }}</time></dd>
             </div>
         </dl>
-        {% if item.owner_id != request.user.id %}
-        <form method="post" action="{% url 'chat:start_conversation' item.id %}">
-            {% csrf_token %}
-            <button class="btn btn--primary" type="submit">
-                Message owner
-            </button>
-        </form>
+
+        {% if is_owner %}
+        <section class="claim-panel" aria-labelledby="claim-panel-title">
+            <h2 class="claim-panel__title" id="claim-panel-title">This is your listing</h2>
+            <p class="claim-panel__help">
+                {% if owner_claims %}
+                {{ owner_claims|length }} claim{{ owner_claims|length|pluralize }}{% if pending_claim_count %} · {{ pending_claim_count }} waiting for your decision{% endif %}.
+                {% else %}
+                No claims yet. When students claim it, you can choose who gets it in My Posts.
+                {% endif %}
+            </p>
+            <a class="btn btn--primary btn--block" href="{% url 'my_posts' %}#item-{{ item.pk }}">{% if pending_claim_count %}Review claims{% else %}Manage in My Posts{% endif %}</a>
+        </section>
+        {% else %}
+        <section class="claim-panel" aria-labelledby="claim-panel-title">
+            {% if existing_claim and existing_claim.status != 'cancelled' %}
+            <h2 class="claim-panel__title" id="claim-panel-title">Your claim</h2>
+            <p class="claim-panel__status">
+                <span class="status-chip status-chip--{{ existing_claim.status }}">{{ existing_claim.get_status_display }}</span>
+                <span class="muted">Sent {{ existing_claim.created_at|date:"j M" }}</span>
+            </p>
+            <p class="claim-panel__help">
+                {% if existing_claim.status == 'pending' %}The owner will review your claim and reserve the item for one student.
+                {% elif existing_claim.status == 'approved' %}It's reserved for you! Message the owner to arrange collection.
+                {% elif existing_claim.status == 'declined' %}The owner chose someone else this time.
+                {% elif existing_claim.status == 'completed' %}You've collected this item — enjoy it!
+                {% endif %}
+            </p>
+            {% if existing_claim.note %}
+            <blockquote class="claim-panel__note">{{ existing_claim.note }}</blockquote>
+            {% endif %}
+            {% if existing_claim.is_active %}
+            <form method="post" action="{% url 'claim_update' existing_claim.pk 'cancel' %}" data-confirm="Cancel your claim for “{{ item.title }}”?" data-submit-once>
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="btn btn--ghost btn--sm" type="submit">Cancel claim</button>
+            </form>
+            {% endif %}
+            {% elif can_claim %}
+            <h2 class="claim-panel__title" id="claim-panel-title">{% if existing_claim %}Claim it again{% else %}Claim this item{% endif %}</h2>
+            <p class="claim-panel__help">It's free. The owner reviews claims and reserves the item for one student.</p>
+            <form method="post" action="{% url 'claim_create' item.pk %}" class="form-stack" novalidate data-submit-once>
+                {% csrf_token %}
+                {% include 'partials/form_field.html' with field=claim_form.note counter=True %}
+                <button class="btn btn--primary btn--block" type="submit">Send claim</button>
+            </form>
+            {% else %}
+            <h2 class="claim-panel__title" id="claim-panel-title">Not open for claims</h2>
+            <p class="claim-panel__help">This item has already been {% if item.status == 'reserved' %}reserved for another student{% else %}passed on{% endif %}.</p>
+            {% endif %}
+
+            {% if can_message %}
+            <form method="post" action="{% url 'chat:start_conversation' item.pk %}" class="claim-panel__message" data-submit-once>
+                {% csrf_token %}
+                <button class="btn btn--soft btn--block" type="submit">
+                    {% include 'partials/icon.html' with name='chat' %}
+                    {% if conversation %}Open your chat{% else %}Message the owner{% endif %}
+                </button>
+            </form>
+            {% endif %}
+        </section>
         {% endif %}
     </div>
-</section>
+</article>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/item_gallery.js' %}" defer></script>
 {% endblock %}

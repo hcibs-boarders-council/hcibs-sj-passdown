@@ -120,6 +120,10 @@ class Claim(models.Model):
     def can_mark_completed(self, user):
         return self.item.owner_id == user.id and self.status == self.Status.APPROVED
 
+    def can_release(self, user):
+        """The owner can undo an approval (e.g. the claimant never collected)."""
+        return self.item.owner_id == user.id and self.status == self.Status.APPROVED
+
 
 class ItemPhoto(models.Model):
     item = models.ForeignKey(

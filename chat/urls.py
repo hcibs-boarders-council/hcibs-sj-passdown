@@ -12,6 +12,11 @@ urlpatterns = [
         name='start_conversation',
     ),
     path(
+        'claims/<int:claim_id>/message/',
+        views.start_claimant_conversation,
+        name='start_claimant_conversation',
+    ),
+    path(
         '<int:pk>/messages/',
         views.conversation_messages,
         name='conversation_messages',

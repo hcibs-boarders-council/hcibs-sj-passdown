@@ -1,4 +1,3 @@
-
 {% extends 'base.html' %}
 {% load static %}
 
@@ -12,90 +11,115 @@
 
 {% block content %}
 <section class="account-page" aria-labelledby="posts-title">
-    <header class="account-page__header">
-        <p class="eyebrow">Your contributions</p>
-        <h1 class="display" id="posts-title">My Posts</h1>
-        <p>Keep track of the items you've passed down.</p>
+    <header class="page-header page-header--split">
+        <div>
+            <p class="eyebrow">Your contributions</p>
+            <h1 class="display" id="posts-title">My Posts</h1>
+            <p class="page-header__lead">Review claims, reserve items for juniors and mark them as passed on.</p>
+        </div>
+        <a class="btn btn--primary" href="{% url 'item_create' %}">{% include 'partials/icon.html' with name='plus' %}Post an item</a>
     </header>
 
     {% if page_obj.object_list %}
-        <div class="account-list">
-            {% for item in page_obj %}
-                <article class="account-card">
-                    {% with photo=item.photos.all.0 %}
-                        {% if photo %}
-                            <img
-                                class="account-card__image"
-                                src="{{ photo.image.url }}"
-                                alt="{{ item.title }}"
-                            >
-                        {% else %}
-                            <div class="account-card__image account-card__image--empty"
-                                 aria-label="No photo available">
-                                No photo
+    <div class="account-list">
+        {% for item in page_obj %}
+        <article class="card post-card" id="item-{{ item.pk }}" aria-labelledby="post-{{ item.pk }}-title">
+            <div class="post-card__summary">
+                {% with photo=item.photos.all.0 %}
+                <a class="post-card__media tile--{{ item.category }}" href="{% url 'item_detail' item.pk %}" tabindex="-1" aria-hidden="true">
+                    {% if photo %}
+                    <img src="{{ photo.image.url }}" alt="" loading="lazy" decoding="async">
+                    {% else %}
+                    <span class="post-card__art">{% include 'partials/category_art.html' with category=item.category %}</span>
+                    {% endif %}
+                </a>
+                {% endwith %}
+
+                <div class="post-card__body">
+                    <p class="account-card__eyebrow">{{ item.get_category_display }} · Posted {{ item.created_at|date:"j M Y" }}</p>
+                    <h2 class="account-card__title" id="post-{{ item.pk }}-title">
+                        <a href="{% url 'item_detail' item.pk %}">{{ item.title }}</a>
+                    </h2>
+                    <p class="post-card__status">
+                        <span class="status-chip status-chip--{{ item.status }}">{{ item.get_status_display }}</span>
+                        <span class="muted">{{ item.claim_total }} claim{{ item.claim_total|pluralize }}</span>
+                        {% if item.pending_claim_total %}
+                        <span class="badge-count" title="Waiting for your decision">{{ item.pending_claim_total }} new</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            {% if item.claim_total %}
+            <details class="claims"{% if item.pending_claim_total or item.status == 'reserved' %} open{% endif %}>
+                <summary class="claims__summary">
+                    Claims ({{ item.claim_total }}){% if item.pending_claim_total %} · {{ item.pending_claim_total }} waiting for you{% endif %}
+                    <span class="claims__caret" aria-hidden="true">{% include 'partials/icon.html' with name='chevron-down' %}</span>
+                </summary>
+                <ul class="claims__list">
+                    {% for claim in item.claims.all %}
+                    <li class="claim-row">
+                        <div class="claim-row__head">
+                            <span class="avatar avatar--sm" aria-hidden="true">{{ claim.claimant.username|first|upper }}</span>
+                            <div class="claim-row__who">
+                                <strong>{{ claim.claimant.username }}</strong>
+                                <span class="muted">{{ claim.created_at|date:"j M, g:i a" }}</span>
                             </div>
-                        {% endif %}
-                    {% endwith %}
-
-                    <div class="account-card__content">
-                        <p class="account-card__eyebrow">
-                            {{ item.get_category_display }}
-                        </p>
-                        <h2 class="account-card__title">{{ item.title }}</h2>
-                        <p class="account-card__description">
-                            {{ item.description|truncatechars:140 }}
-                        </p>
-
-                        <p>
-                            <span class="chip">{{ item.get_status_display }}</span>
-                        </p>
-
-                        <p class="account-card__meta">
-                            Posted {{ item.created_at|date:"j M Y" }}
-                            · {{ item.claims.count }} claim{{ item.claims.count|pluralize }}
-                        </p>
-
-                        {% if item.status == 'available' %}
-                            <a class="btn btn--soft btn--sm"
-                               href="{% url 'item_detail' item.pk %}">
-                                View listing
-                            </a>
+                            <span class="status-chip status-chip--{{ claim.status }}">{{ claim.get_status_display }}</span>
+                        </div>
+                        {% if claim.note %}
+                        <p class="claim-row__note">{{ claim.note }}</p>
                         {% endif %}
 
-                        {% with pending_claims=item.claims.all %}
-                            {% if pending_claims %}
-                                <details class="account-card__claims">
-                                    <summary>View claims</summary>
-                                    <ul>
-                                        {% for claim in pending_claims %}
-                                            <li>
-                                                <strong>{{ claim.claimant.username }}</strong>
-                                                <span class="chip">
-                                                    {{ claim.get_status_display }}
-                                                </span>
-                                                {% if claim.note %}
-                                                    <p>{{ claim.note|linebreaksbr }}</p>
-                                                {% endif %}
-                                            </li>
-                                        {% endfor %}
-                                    </ul>
-                                </details>
+                        <div class="claim-row__actions">
+                            {% if claim.status == 'pending' and item.status == 'available' %}
+                            <form method="post" action="{% url 'claim_update' claim.pk 'approve' %}" data-submit-once data-confirm="Reserve “{{ item.title }}” for {{ claim.claimant.username }}? Any other pending claims will be declined.">
+                                {% csrf_token %}
+                                <button class="btn btn--primary btn--sm" type="submit">{% include 'partials/icon.html' with name='check' %}Approve</button>
+                            </form>
+                            <form method="post" action="{% url 'claim_update' claim.pk 'decline' %}" data-submit-once data-confirm="Decline {{ claim.claimant.username }}'s claim?">
+                                {% csrf_token %}
+                                <button class="btn btn--ghost btn--sm" type="submit">Decline</button>
+                            </form>
+                            {% elif claim.status == 'approved' %}
+                            <form method="post" action="{% url 'claim_update' claim.pk 'complete' %}" data-submit-once data-confirm="Confirm that {{ claim.claimant.username }} has collected “{{ item.title }}”?">
+                                {% csrf_token %}
+                                <button class="btn btn--primary btn--sm" type="submit">{% include 'partials/icon.html' with name='package' %}Mark as passed on</button>
+                            </form>
+                            <form method="post" action="{% url 'claim_update' claim.pk 'release' %}" data-submit-once data-confirm="Release the reservation? “{{ item.title }}” becomes available to everyone again.">
+                                {% csrf_token %}
+                                <button class="btn btn--ghost btn--sm" type="submit">Release reservation</button>
+                            </form>
                             {% endif %}
-                        {% endwith %}
-                    </div>
-                </article>
-            {% endfor %}
-        </div>
 
-        {% include 'accounts/partials/pagination.html' %}
+                            {% if claim.status != 'cancelled' %}
+                            <form method="post" action="{% url 'chat:start_claimant_conversation' claim.pk %}" data-submit-once>
+                                {% csrf_token %}
+                                <button class="btn btn--quiet btn--sm" type="submit">{% include 'partials/icon.html' with name='chat' %}Message</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </details>
+            {% else %}
+            <p class="post-card__empty">No claims yet. You'll see them here as soon as someone asks for it.</p>
+            {% endif %}
+        </article>
+        {% endfor %}
+    </div>
+
+    {% include 'partials/pagination.html' with page_obj=page_obj label='My posts pages' %}
     {% else %}
-        <div class="account-empty">
-            <h2>You haven't posted anything yet</h2>
-            <p>Give your unused items a new home by posting your first passdown.</p>
-            <a class="btn btn--primary" href="{% url 'item_create' %}">
-                Post an item
-            </a>
+    <div class="empty-state">
+        <div class="empty-state__art" aria-hidden="true">{% include 'partials/category_art.html' with category='other' %}</div>
+        <h2 class="empty-state__title">You haven't posted anything yet</h2>
+        <p>Give your unused items a new home by posting your first passdown.</p>
+        <div class="empty-state__actions">
+            <a class="btn btn--primary" href="{% url 'item_create' %}">Post an item</a>
         </div>
+    </div>
     {% endif %}
 </section>
 {% endblock %}

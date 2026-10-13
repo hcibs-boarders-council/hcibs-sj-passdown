@@ -85,6 +85,8 @@ class ClaimForm(forms.ModelForm):
     class Meta:
         model = Claim
         fields = ['note']
+        labels = {'note': 'Note for the owner'}
+        help_texts = {'note': 'For example, when you could collect it.'}
         widgets = {
             'note': forms.Textarea(
                 attrs={

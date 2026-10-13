@@ -9,9 +9,9 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
-from listings.models import Item
+from listings.models import Claim, Item
 
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.utils.formats import date_format
 from .forms import MessageForm
 from .models import Conversation, Message
@@ -103,15 +103,28 @@ def conversation_list(request):
 @login_required(login_url='login')
 @require_POST
 def start_conversation(request, item_id):
-    item = get_object_or_404(
-        Item.objects.select_related('owner'),
-        pk=item_id,
-        status=Item.Status.AVAILABLE,
-    )
+    """A student opens (or reopens) a chat with an item's owner.
+
+    Allowed while the item is available, or later if the student still has an
+    active (pending/approved) claim — that is when collection gets arranged.
+    """
+    item = get_object_or_404(Item.objects.select_related('owner'), pk=item_id)
 
     if item.owner_id == request.user.id:
         messages.error(request, 'You cannot start a conversation with yourself.')
         return redirect('item_detail', pk=item.pk)
+
+    existing = Conversation.objects.filter(item=item, requester=request.user).first()
+    if existing:
+        return redirect('chat:conversation_detail', pk=existing.pk)
+
+    has_active_claim = Claim.objects.filter(
+        item=item,
+        claimant=request.user,
+        status__in=[Claim.Status.PENDING, Claim.Status.APPROVED],
+    ).exists()
+    if item.status != Item.Status.AVAILABLE and not has_active_claim:
+        raise Http404('This item is no longer available.')
 
     with transaction.atomic():
         conversation, _ = Conversation.objects.get_or_create(
@@ -124,6 +137,30 @@ def start_conversation(request, item_id):
         'chat:conversation_detail',
         pk=conversation.pk,
     )
+
+
+@login_required(login_url='login')
+@require_POST
+def start_claimant_conversation(request, claim_id):
+    """An item owner messages someone who claimed their item."""
+    claim = get_object_or_404(
+        Claim.objects.select_related('item', 'claimant'),
+        pk=claim_id,
+        item__owner=request.user,
+    )
+
+    if claim.status == Claim.Status.CANCELLED:
+        messages.error(request, 'That claim was cancelled, so there is no one to message.')
+        return redirect('my_posts')
+
+    with transaction.atomic():
+        conversation, _ = Conversation.objects.get_or_create(
+            item=claim.item,
+            requester=claim.claimant,
+            defaults={'owner': request.user},
+        )
+
+    return redirect('chat:conversation_detail', pk=conversation.pk)
 
 
 @login_required(login_url='login')

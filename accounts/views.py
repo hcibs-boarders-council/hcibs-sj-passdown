@@ -6,12 +6,13 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.core.paginator import Paginator
-from django.db.models import Prefetch
+from django.db.models import Case, Count, Exists, IntegerField, OuterRef, Prefetch, Q, Value, When
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import AccountDetailsForm
+from chat.models import Conversation
 from listings.models import Claim, Item, ItemPhoto
 
 
@@ -108,6 +109,7 @@ def register(request):
                 email=email,
                 password=password,
             )
+            messages.success(request, 'Your account is ready. Log in to start browsing.')
             return redirect('login')
 
         return render(
@@ -133,11 +135,29 @@ def account_detail(request):
     return render(request, 'accounts/account_detail.html', {'form': form})
 
 
+# Claims needing a decision first, then the active reservation, then history.
+CLAIM_STATUS_RANK = Case(
+    When(status=Claim.Status.PENDING, then=Value(0)),
+    When(status=Claim.Status.APPROVED, then=Value(1)),
+    When(status=Claim.Status.COMPLETED, then=Value(2)),
+    default=Value(3),
+    output_field=IntegerField(),
+)
+
+
 @login_required(login_url='login')
 def my_posts(request):
     items = (
         Item.objects
         .filter(owner=request.user)
+        .annotate(
+            claim_total=Count('claims', distinct=True),
+            pending_claim_total=Count(
+                'claims',
+                filter=Q(claims__status=Claim.Status.PENDING),
+                distinct=True,
+            ),
+        )
         .prefetch_related(
             Prefetch(
                 'photos',
@@ -145,7 +165,12 @@ def my_posts(request):
             ),
             Prefetch(
                 'claims',
-                queryset=Claim.objects.select_related('claimant').order_by('-created_at'),
+                queryset=(
+                    Claim.objects
+                    .select_related('claimant')
+                    .annotate(status_rank=CLAIM_STATUS_RANK)
+                    .order_by('status_rank', '-created_at')
+                ),
             ),
         )
         .order_by('-created_at')
@@ -162,6 +187,14 @@ def my_claims(request):
         Claim.objects
         .filter(claimant=request.user)
         .select_related('item', 'item__owner')
+        .annotate(
+            has_conversation=Exists(
+                Conversation.objects.filter(
+                    item=OuterRef('item'),
+                    requester=request.user,
+                )
+            ),
+        )
         .prefetch_related(
             Prefetch(
                 'item__photos',

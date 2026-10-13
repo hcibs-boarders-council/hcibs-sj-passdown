@@ -1,12 +1,18 @@
+import threading
 from io import BytesIO
 from os import urandom
 from tempfile import TemporaryDirectory
+from unittest import skipUnless
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.db import connection
+from django.test import Client, TestCase, TransactionTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from PIL import Image
+
+from chat.models import Conversation
 
 from .forms import MAX_PHOTO_COUNT, MAX_PHOTO_SIZE, ItemForm
 from .models import Claim, Item, ItemPhoto
@@ -89,8 +95,9 @@ class ListingPhotoTests(TestCase):
             self.post_data([self.image_file()]),
         )
 
-        self.assertRedirects(response, reverse('home'))
         item = Item.objects.get(title='Math revision guide')
+        # Posting now lands on the new listing (with a confirmation message).
+        self.assertRedirects(response, reverse('item_detail', kwargs={'pk': item.pk}))
         self.assertEqual(item.owner, self.user)
         self.assertEqual(item.status, Item.Status.AVAILABLE)
         self.assertEqual(item.photos.count(), 1)
@@ -102,8 +109,8 @@ class ListingPhotoTests(TestCase):
 
         response = self.client.post(reverse('item_create'), self.post_data(photos))
 
-        self.assertRedirects(response, reverse('home'))
         item = Item.objects.get(title='Math revision guide')
+        self.assertRedirects(response, reverse('item_detail', kwargs={'pk': item.pk}))
         saved_photos = list(item.photos.all())
         self.assertEqual(len(saved_photos), MAX_PHOTO_COUNT)
         self.assertEqual([photo.position for photo in saved_photos], [0, 1, 2, 3, 4])
@@ -170,8 +177,8 @@ class ListingPhotoTests(TestCase):
 
         response = self.client.post(reverse('item_create'), data)
 
-        self.assertRedirects(response, reverse('home'))
         new_item = Item.objects.get(title='Math revision guide')
+        self.assertRedirects(response, reverse('item_detail', kwargs={'pk': new_item.pk}))
         self.assertEqual(new_item.owner, self.user)
         self.assertEqual(new_item.status, Item.Status.AVAILABLE)
         self.assertNotEqual(new_item.pk, other_item.pk)
@@ -668,3 +675,369 @@ class HomeSearchFilterTests(TestCase):
         response = self.get_home(q='a' * 500)
 
         self.assertEqual(len(response.context['query']), 100)
+
+
+class ClaimTestMixin:
+    """Shared users/item for the claim journey tests."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user(username='owner', password='secure-password-123')
+        self.claimant = User.objects.create_user(username='claimant', password='secure-password-123')
+        self.other = User.objects.create_user(username='other-student', password='secure-password-123')
+        self.outsider = User.objects.create_user(username='outsider', password='secure-password-123')
+        self.item = Item.objects.create(
+            owner=self.owner,
+            title='Biology flashcards',
+            description='Full set.',
+            category=Item.Category.STATIONERY,
+        )
+
+    def claim(self, claimant=None, status=Claim.Status.PENDING, note='Please!'):
+        return Claim.objects.create(
+            item=self.item,
+            claimant=claimant or self.claimant,
+            status=status,
+            note=note,
+        )
+
+    def reserve(self):
+        self.item.status = Item.Status.RESERVED
+        self.item.save(update_fields=['status', 'updated_at'])
+
+    def detail(self, user):
+        self.client.force_login(user)
+        return self.client.get(reverse('item_detail', kwargs={'pk': self.item.pk}))
+
+    def act(self, user, claim, action, **data):
+        self.client.force_login(user)
+        return self.client.post(
+            reverse('claim_update', kwargs={'pk': claim.pk, 'action': action}),
+            data,
+        )
+
+
+class ItemDetailClaimPanelTests(ClaimTestMixin, TestCase):
+    def test_other_students_see_the_claim_form(self):
+        response = self.detail(self.claimant)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'action="%s"' % reverse('claim_create', kwargs={'pk': self.item.pk}))
+        self.assertContains(response, 'Send claim')
+        self.assertTrue(response.context['can_claim'])
+
+    def test_owner_sees_management_panel_instead_of_claim_form(self):
+        self.claim()
+
+        response = self.detail(self.owner)
+
+        self.assertNotContains(response, 'Send claim')
+        self.assertContains(response, 'This is your listing')
+        self.assertContains(response, '1 waiting for your decision')
+        self.assertContains(response, reverse('my_posts'))
+
+    def test_pending_claim_is_shown_with_a_cancel_button(self):
+        claim = self.claim()
+
+        response = self.detail(self.claimant)
+
+        self.assertNotContains(response, 'Send claim')
+        self.assertContains(response, 'Your claim')
+        self.assertContains(response, reverse('claim_update', kwargs={'pk': claim.pk, 'action': 'cancel'}))
+
+    def test_cancelled_claim_can_be_sent_again(self):
+        self.claim(status=Claim.Status.CANCELLED)
+
+        response = self.detail(self.claimant)
+
+        self.assertContains(response, 'Claim it again')
+        self.assertTrue(response.context['can_claim'])
+
+    def test_invalid_note_is_shown_again_with_its_error(self):
+        self.client.force_login(self.claimant)
+        long_note = 'x' * 501
+
+        response = self.client.post(
+            reverse('claim_create', kwargs={'pk': self.item.pk}),
+            {'note': long_note},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'listings/item_detail.html')
+        self.assertIn('note', response.context['claim_form'].errors)
+        self.assertContains(response, long_note)
+        self.assertContains(response, 'id="id_note_error"')
+        self.assertFalse(Claim.objects.exists())
+
+    def test_items_without_photos_show_a_placeholder(self):
+        response = self.detail(self.claimant)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No photos for this listing')
+
+    def test_unavailable_item_explains_its_state(self):
+        self.claim(status=Claim.Status.APPROVED)
+        self.reserve()
+
+        response = self.detail(self.owner)
+
+        self.assertContains(response, 'This item is reserved for claimant')
+
+
+class ItemVisibilityTests(ClaimTestMixin, TestCase):
+    def test_reserved_item_is_visible_to_the_people_involved(self):
+        self.claim(status=Claim.Status.APPROVED)
+        self.claim(claimant=self.other, status=Claim.Status.DECLINED)
+        self.reserve()
+
+        for user in (self.owner, self.claimant, self.other):
+            with self.subTest(user=user.username):
+                self.assertEqual(self.detail(user).status_code, 200)
+
+        self.assertEqual(self.detail(self.outsider).status_code, 404)
+
+    def test_chat_participants_can_still_open_a_reserved_item(self):
+        Conversation.objects.create(item=self.item, owner=self.owner, requester=self.outsider)
+        self.reserve()
+
+        self.assertEqual(self.detail(self.outsider).status_code, 200)
+
+    def test_passed_on_item_stays_hidden_from_everyone_else(self):
+        self.item.status = Item.Status.PASSED_ON
+        self.item.save(update_fields=['status', 'updated_at'])
+
+        self.assertEqual(self.detail(self.outsider).status_code, 404)
+        self.assertEqual(self.detail(self.owner).status_code, 200)
+
+    def test_unavailable_items_cannot_be_claimed(self):
+        for status in (Item.Status.RESERVED, Item.Status.PASSED_ON):
+            with self.subTest(status=status):
+                self.item.status = status
+                self.item.save(update_fields=['status', 'updated_at'])
+                self.client.force_login(self.outsider)
+
+                response = self.client.post(
+                    reverse('claim_create', kwargs={'pk': self.item.pk}),
+                    {'note': 'Me please'},
+                    follow=True,
+                )
+
+                self.assertContains(response, 'This item is no longer available to claim.')
+                self.assertFalse(Claim.objects.filter(claimant=self.outsider).exists())
+
+
+class ClaimDecisionTests(ClaimTestMixin, TestCase):
+    def test_owner_can_decline_a_pending_claim(self):
+        claim = self.claim()
+
+        response = self.act(self.owner, claim, 'decline')
+
+        self.assertRedirects(response, reverse('my_posts'))
+        claim.refresh_from_db()
+        self.assertEqual(claim.status, Claim.Status.DECLINED)
+        self.assertIsNotNone(claim.decided_at)
+
+    def test_only_the_owner_can_decide(self):
+        pending = self.claim()
+        approved = self.claim(claimant=self.other, status=Claim.Status.APPROVED)
+
+        for user, claim, action in (
+            (self.claimant, pending, 'decline'),
+            (self.outsider, pending, 'decline'),
+            (self.outsider, approved, 'complete'),
+            (self.claimant, approved, 'release'),
+        ):
+            with self.subTest(user=user.username, action=action):
+                status_before = claim.status
+                self.act(user, claim, action)
+                claim.refresh_from_db()
+                self.assertEqual(claim.status, status_before)
+
+    def test_complete_requires_an_approved_claim(self):
+        claim = self.claim()
+
+        response = self.act(self.owner, claim, 'complete', next='/')
+
+        self.assertRedirects(response, reverse('my_posts'))
+        claim.refresh_from_db()
+        self.item.refresh_from_db()
+        self.assertEqual(claim.status, Claim.Status.PENDING)
+        self.assertEqual(self.item.status, Item.Status.AVAILABLE)
+
+    def test_owner_can_release_a_reservation(self):
+        claim = self.claim(status=Claim.Status.APPROVED)
+        self.reserve()
+
+        response = self.act(self.owner, claim, 'release')
+
+        self.assertRedirects(response, reverse('my_posts'))
+        claim.refresh_from_db()
+        self.item.refresh_from_db()
+        self.assertEqual(claim.status, Claim.Status.DECLINED)
+        self.assertEqual(self.item.status, Item.Status.AVAILABLE)
+
+    def test_release_requires_an_approved_claim(self):
+        claim = self.claim()
+
+        self.act(self.owner, claim, 'release')
+
+        claim.refresh_from_db()
+        self.assertEqual(claim.status, Claim.Status.PENDING)
+
+    def test_cancelling_an_approved_claim_reopens_the_item(self):
+        claim = self.claim(status=Claim.Status.APPROVED)
+        self.reserve()
+
+        response = self.act(self.claimant, claim, 'cancel')
+
+        self.assertRedirects(response, reverse('my_claims'))
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.status, Item.Status.AVAILABLE)
+
+    def test_approving_when_the_item_is_already_reserved_is_rejected(self):
+        self.claim(status=Claim.Status.APPROVED)
+        late = self.claim(claimant=self.other)
+        self.reserve()
+
+        self.act(self.owner, late, 'approve')
+
+        late.refresh_from_db()
+        self.assertEqual(late.status, Claim.Status.PENDING)
+
+    def test_unknown_actions_change_nothing(self):
+        claim = self.claim()
+
+        response = self.act(self.owner, claim, 'delete')
+
+        self.assertRedirects(response, reverse('home'))
+        claim.refresh_from_db()
+        self.assertEqual(claim.status, Claim.Status.PENDING)
+
+    def test_missing_claim_returns_404(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.post(reverse('claim_update', kwargs={'pk': 999, 'action': 'approve'}))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_cancel_returns_to_a_safe_next_url_only(self):
+        detail_url = reverse('item_detail', kwargs={'pk': self.item.pk})
+        claim = self.claim()
+
+        response = self.act(self.claimant, claim, 'cancel', next=detail_url)
+        self.assertRedirects(response, detail_url)
+
+        claim.status = Claim.Status.PENDING
+        claim.save(update_fields=['status'])
+        response = self.act(self.claimant, claim, 'cancel', next='https://evil.example/')
+        self.assertRedirects(response, reverse('my_claims'))
+
+
+class ClaimManagementPagesTests(ClaimTestMixin, TestCase):
+    def test_my_posts_offers_approve_and_decline_for_pending_claims(self):
+        claim = self.claim()
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse('my_posts'))
+
+        for action in ('approve', 'decline'):
+            self.assertContains(response, reverse('claim_update', kwargs={'pk': claim.pk, 'action': action}))
+        self.assertContains(response, reverse('chat:start_claimant_conversation', kwargs={'claim_id': claim.pk}))
+        self.assertContains(response, '1 waiting for you')
+
+    def test_my_posts_offers_complete_and_release_for_approved_claims(self):
+        claim = self.claim(status=Claim.Status.APPROVED)
+        self.reserve()
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse('my_posts'))
+
+        for action in ('complete', 'release'):
+            self.assertContains(response, reverse('claim_update', kwargs={'pk': claim.pk, 'action': action}))
+        self.assertNotContains(response, reverse('claim_update', kwargs={'pk': claim.pk, 'action': 'approve'}))
+
+    def test_finished_claims_have_no_decision_buttons(self):
+        claim = self.claim(status=Claim.Status.DECLINED)
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse('my_posts'))
+
+        for action in ('approve', 'decline', 'complete', 'release'):
+            self.assertNotContains(response, reverse('claim_update', kwargs={'pk': claim.pk, 'action': action}))
+
+    def test_my_claims_offers_cancel_only_for_active_claims(self):
+        active = self.claim()
+        other_item = Item.objects.create(
+            owner=self.owner, title='Old tie', description='Tie', category=Item.Category.CLOTHES,
+        )
+        finished = Claim.objects.create(item=other_item, claimant=self.claimant, status=Claim.Status.DECLINED)
+        self.client.force_login(self.claimant)
+
+        response = self.client.get(reverse('my_claims'))
+
+        self.assertContains(response, reverse('claim_update', kwargs={'pk': active.pk, 'action': 'cancel'}))
+        self.assertNotContains(response, reverse('claim_update', kwargs={'pk': finished.pk, 'action': 'cancel'}))
+
+    def test_my_posts_query_count_does_not_grow_with_items(self):
+        self.client.force_login(self.owner)
+        self.claim()
+
+        with CaptureQueriesContext(connection) as one_item:
+            self.client.get(reverse('my_posts'))
+
+        for number in range(4):
+            extra = Item.objects.create(
+                owner=self.owner, title=f'Extra {number}', description='-', category=Item.Category.OTHER,
+            )
+            Claim.objects.create(item=extra, claimant=self.claimant)
+            Claim.objects.create(item=extra, claimant=self.other)
+
+        with CaptureQueriesContext(connection) as five_items:
+            self.client.get(reverse('my_posts'))
+
+        self.assertEqual(len(one_item.captured_queries), len(five_items.captured_queries))
+
+
+@skipUnless(connection.vendor == 'postgresql', 'Row-level locking needs PostgreSQL')
+class ClaimConcurrencyTests(TransactionTestCase):
+    """Two approvals at once must reserve the item for exactly one student."""
+
+    def test_simultaneous_approvals_reserve_for_one_claimant(self):
+        User = get_user_model()
+        owner = User.objects.create_user(username='owner', password='secure-password-123')
+        first = User.objects.create_user(username='first', password='secure-password-123')
+        second = User.objects.create_user(username='second', password='secure-password-123')
+        item = Item.objects.create(owner=owner, title='Lab coat', description='-', category=Item.Category.CLOTHES)
+        claims = [
+            Claim.objects.create(item=item, claimant=first),
+            Claim.objects.create(item=item, claimant=second),
+        ]
+        barrier = threading.Barrier(len(claims))
+        results, errors = [], []
+
+        def approve(claim_pk):
+            try:
+                client = Client()
+                client.force_login(owner)
+                barrier.wait(timeout=10)
+                response = client.post(
+                    reverse('claim_update', kwargs={'pk': claim_pk, 'action': 'approve'}),
+                )
+                results.append(response.status_code)
+            except Exception as error:  # surfaced in the assertion below
+                errors.append(error)
+            finally:
+                connection.close()
+
+        threads = [threading.Thread(target=approve, args=(claim.pk,)) for claim in claims]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(results, [302, 302])
+        statuses = sorted(Claim.objects.filter(item=item).values_list('status', flat=True))
+        self.assertEqual(statuses, [Claim.Status.APPROVED, Claim.Status.DECLINED])
+        item.refresh_from_db()
+        self.assertEqual(item.status, Item.Status.RESERVED)

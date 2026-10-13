@@ -264,6 +264,91 @@ class ChatViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
+class ChatStartRulesTests(TestCase):
+    """Who may open a conversation, and when (D4)."""
+
+    def setUp(self):
+        from listings.models import Claim
+
+        self.Claim = Claim
+        self.owner = User.objects.create_user(username='owner', password='TestPassword123!')
+        self.claimant = User.objects.create_user(username='claimant', password='TestPassword123!')
+        self.outsider = User.objects.create_user(username='outsider', password='TestPassword123!')
+        self.item = Item.objects.create(
+            owner=self.owner,
+            title='Reserved textbook',
+            description='Testing chat rules.',
+            category=Item.Category.BOOKS,
+            status=Item.Status.RESERVED,
+        )
+
+    def start(self, user):
+        self.client.force_login(user)
+        return self.client.post(reverse('chat:start_conversation', args=[self.item.pk]))
+
+    def test_student_with_an_active_claim_can_chat_about_a_reserved_item(self):
+        self.Claim.objects.create(item=self.item, claimant=self.claimant, status=self.Claim.Status.APPROVED)
+
+        response = self.start(self.claimant)
+
+        conversation = Conversation.objects.get(item=self.item, requester=self.claimant)
+        self.assertRedirects(response, reverse('chat:conversation_detail', args=[conversation.pk]))
+        self.assertEqual(conversation.owner, self.owner)
+
+    def test_outsider_cannot_start_a_chat_on_a_reserved_item(self):
+        response = self.start(self.outsider)
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(Conversation.objects.exists())
+
+    def test_existing_chat_reopens_after_the_item_is_passed_on(self):
+        conversation = Conversation.objects.create(item=self.item, owner=self.owner, requester=self.outsider)
+        self.item.status = Item.Status.PASSED_ON
+        self.item.save(update_fields=['status', 'updated_at'])
+
+        response = self.start(self.outsider)
+
+        self.assertRedirects(response, reverse('chat:conversation_detail', args=[conversation.pk]))
+
+    def test_owner_can_message_a_claimant(self):
+        claim = self.Claim.objects.create(item=self.item, claimant=self.claimant)
+        self.client.force_login(self.owner)
+
+        response = self.client.post(reverse('chat:start_claimant_conversation', args=[claim.pk]))
+
+        conversation = Conversation.objects.get(item=self.item, requester=self.claimant)
+        self.assertEqual(conversation.owner, self.owner)
+        self.assertRedirects(response, reverse('chat:conversation_detail', args=[conversation.pk]))
+
+    def test_only_the_item_owner_can_message_its_claimants(self):
+        claim = self.Claim.objects.create(item=self.item, claimant=self.claimant)
+        self.client.force_login(self.outsider)
+
+        response = self.client.post(reverse('chat:start_claimant_conversation', args=[claim.pk]))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(Conversation.objects.exists())
+
+    def test_cancelled_claims_cannot_be_messaged(self):
+        claim = self.Claim.objects.create(
+            item=self.item, claimant=self.claimant, status=self.Claim.Status.CANCELLED,
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.post(reverse('chat:start_claimant_conversation', args=[claim.pk]))
+
+        self.assertRedirects(response, reverse('my_posts'))
+        self.assertFalse(Conversation.objects.exists())
+
+    def test_messaging_a_claimant_requires_post(self):
+        claim = self.Claim.objects.create(item=self.item, claimant=self.claimant)
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse('chat:start_claimant_conversation', args=[claim.pk]))
+
+        self.assertEqual(response.status_code, 405)
+
+
 class ChatUnreadCountTests(TestCase):
     @classmethod
     def setUpTestData(cls):
