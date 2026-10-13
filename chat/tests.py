@@ -11,9 +11,14 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
+from types import SimpleNamespace
+
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from listings.models import Item
+from . import services
 from .context_processors import chat_unread_count
 from .models import Conversation, ConversationReadState, Message
 
@@ -640,3 +645,436 @@ class ChatWebSocketTests(TransactionTestCase):
             conversation=self.conversation,
         )
         self.assertEqual(message.sender, self.requester)
+
+
+
+# ---------------------------------------------------------------------------
+# Live chat: services, read state, idempotency, notifications (Phase 4)
+# ---------------------------------------------------------------------------
+
+class ChatFixtureMixin:
+    def make_people(self):
+        self.owner = User.objects.create_user(username='rt_owner', password='TestPassword123!')
+        self.requester = User.objects.create_user(username='rt_requester', password='TestPassword123!')
+        self.outsider = User.objects.create_user(username='rt_outsider', password='TestPassword123!')
+        self.item = Item.objects.create(
+            owner=self.owner,
+            title='Realtime test book',
+            description='Testing live chat.',
+            category=Item.Category.BOOKS,
+        )
+        self.conversation = Conversation.objects.create(
+            item=self.item,
+            owner=self.owner,
+            requester=self.requester,
+        )
+
+
+class ReadStateTests(ChatFixtureMixin, TestCase):
+    def setUp(self):
+        self.make_people()
+
+    def test_marking_read_up_to_a_message_keeps_later_ones_unread(self):
+        first = Message.objects.create(conversation=self.conversation, sender=self.requester, body='One')
+        second = Message.objects.create(conversation=self.conversation, sender=self.requester, body='Two')
+        Message.objects.filter(pk=second.pk).update(created_at=first.created_at + timedelta(seconds=5))
+
+        self.conversation.mark_read(self.owner, up_to=first)
+
+        self.assertEqual(services.unread_counts(self.owner, self.conversation.pk)['conversation'], 1)
+
+    def test_read_position_never_moves_backwards(self):
+        first = Message.objects.create(conversation=self.conversation, sender=self.requester, body='One')
+        second = Message.objects.create(conversation=self.conversation, sender=self.requester, body='Two')
+        Message.objects.filter(pk=second.pk).update(created_at=first.created_at + timedelta(seconds=5))
+        second.refresh_from_db()
+
+        self.conversation.mark_read(self.owner, up_to=second)
+        self.conversation.mark_read(self.owner, up_to=first)
+
+        self.assertEqual(services.unread_total(self.owner), 0)
+
+    def test_cannot_mark_read_with_a_message_from_another_conversation(self):
+        other = Conversation.objects.create(item=self.item, owner=self.owner, requester=self.outsider)
+        foreign = Message.objects.create(conversation=other, sender=self.outsider, body='Hi')
+
+        with self.assertRaises(Exception):
+            self.conversation.mark_read(self.owner, up_to=foreign)
+
+    def test_mark_read_endpoint_accepts_a_cursor(self):
+        first = Message.objects.create(conversation=self.conversation, sender=self.requester, body='One')
+        second = Message.objects.create(conversation=self.conversation, sender=self.requester, body='Two')
+        Message.objects.filter(pk=second.pk).update(created_at=first.created_at + timedelta(seconds=5))
+        self.client.force_login(self.owner)
+        url = reverse('chat:conversation_mark_read', args=[self.conversation.pk])
+
+        response = self.client.post(url, {'last_message_id': first.pk})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['conversation_unread'], 1)
+        self.assertEqual(response.json()['unread_total'], 1)
+
+    def test_mark_read_endpoint_rejects_bad_cursors(self):
+        other = Conversation.objects.create(item=self.item, owner=self.owner, requester=self.outsider)
+        foreign = Message.objects.create(conversation=other, sender=self.outsider, body='Hi')
+        self.client.force_login(self.owner)
+        url = reverse('chat:conversation_mark_read', args=[self.conversation.pk])
+
+        self.assertEqual(self.client.post(url, {'last_message_id': 'abc'}).status_code, 400)
+        self.assertEqual(self.client.post(url, {'last_message_id': foreign.pk}).status_code, 400)
+
+    def test_mark_read_endpoint_is_participants_only(self):
+        self.client.force_login(self.outsider)
+
+        response = self.client.post(reverse('chat:conversation_mark_read', args=[self.conversation.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_opening_a_conversation_marks_its_messages_read(self):
+        Message.objects.create(conversation=self.conversation, sender=self.requester, body='Hello')
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse('chat:conversation_detail', args=[self.conversation.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['latest_message_id'], self.conversation.messages.get().pk)
+        self.assertContains(response, 'data-latest-message-id="%s"' % self.conversation.messages.get().pk)
+        self.assertEqual(services.unread_total(self.owner), 0)
+
+    def test_unread_summary_endpoint(self):
+        Message.objects.create(conversation=self.conversation, sender=self.requester, body='Hello')
+
+        self.assertEqual(self.client.get(reverse('chat:unread_summary')).status_code, 401)
+
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse('chat:unread_summary'))
+        self.assertEqual(response.json(), {'unread_total': 1})
+        self.assertIn('no-cache', response.get('Cache-Control', ''))
+
+
+class MessageIdempotencyTests(ChatFixtureMixin, TestCase):
+    def setUp(self):
+        self.make_people()
+
+    def test_same_client_id_returns_the_stored_message(self):
+        first, created = services.create_message(
+            conversation=self.conversation, sender=self.requester, body='Hi', client_message_id='abc-123',
+        )
+        again, created_again = services.create_message(
+            conversation=self.conversation, sender=self.requester, body='Hi', client_message_id='abc-123',
+        )
+
+        self.assertTrue(created)
+        self.assertFalse(created_again)
+        self.assertEqual(first.pk, again.pk)
+        self.assertEqual(Message.objects.count(), 1)
+
+    def test_client_id_cannot_be_reused_across_conversations(self):
+        other = Conversation.objects.create(item=self.item, owner=self.owner, requester=self.outsider)
+        services.create_message(
+            conversation=self.conversation, sender=self.owner, body='Hi', client_message_id='same-id',
+        )
+
+        with self.assertRaises(services.ClientMessageIdConflict):
+            services.create_message(conversation=other, sender=self.owner, body='Hi', client_message_id='same-id')
+
+    def test_form_fallback_with_a_client_id_is_not_duplicated(self):
+        self.client.force_login(self.requester)
+        url = reverse('chat:conversation_detail', args=[self.conversation.pk])
+
+        for _ in range(2):
+            self.client.post(url, {'body': 'Hello there', 'client_message_id': 'form-retry-1'})
+
+        self.assertEqual(Message.objects.filter(body='Hello there').count(), 1)
+
+    def test_json_fallback_returns_the_stored_message_once(self):
+        self.client.force_login(self.requester)
+        url = reverse('chat:conversation_detail', args=[self.conversation.pk])
+        payload = {'body': '  Still free?  ', 'client_message_id': 'http-send-1'}
+
+        first = self.client.post(url, payload, HTTP_ACCEPT='application/json')
+        again = self.client.post(url, payload, HTTP_ACCEPT='application/json')
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(first.json()['client_message_id'], 'http-send-1')
+        self.assertEqual(first.json()['message']['body'], 'Still free?')
+        self.assertEqual(first.json()['message']['id'], again.json()['message']['id'])
+        self.assertEqual(Message.objects.filter(body='Still free?').count(), 1)
+
+    def test_json_fallback_reports_validation_errors(self):
+        self.client.force_login(self.requester)
+        url = reverse('chat:conversation_detail', args=[self.conversation.pk])
+
+        response = self.client.post(url, {'body': '   '}, HTTP_ACCEPT='application/json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.json())
+        self.assertFalse(Message.objects.exists())
+
+    def test_json_fallback_is_participants_only(self):
+        self.client.force_login(self.outsider)
+        url = reverse('chat:conversation_detail', args=[self.conversation.pk])
+
+        response = self.client.post(url, {'body': 'Let me in'}, HTTP_ACCEPT='application/json')
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(Message.objects.exists())
+
+    def test_sending_marks_the_conversation_read_for_the_sender(self):
+        Message.objects.create(conversation=self.conversation, sender=self.owner, body='Ping')
+
+        services.create_message(conversation=self.conversation, sender=self.requester, body='Pong')
+
+        self.assertEqual(services.unread_total(self.requester), 0)
+        self.assertEqual(services.unread_total(self.owner), 1)
+
+    def test_display_time_uses_singapore_time(self):
+        message = Message.objects.create(conversation=self.conversation, sender=self.owner, body='Hi')
+        utc_time = datetime(2026, 10, 13, 0, 30, tzinfo=dt_timezone.utc)
+        Message.objects.filter(pk=message.pk).update(created_at=utc_time)
+        message.refresh_from_db()
+
+        self.assertIn('8:30', services.serialize_message(message)['display_time'])
+
+
+class ConversationListTests(ChatFixtureMixin, TestCase):
+    def setUp(self):
+        self.make_people()
+
+    def test_list_shows_latest_message_preview_and_unread_count(self):
+        Message.objects.create(conversation=self.conversation, sender=self.requester, body='Older')
+        latest = Message.objects.create(conversation=self.conversation, sender=self.requester, body='Newest note')
+        Message.objects.filter(pk=latest.pk).update(created_at=timezone.now() + timedelta(seconds=5))
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse('chat:conversation_list'))
+
+        conversation = list(response.context['conversations'])[0]
+        self.assertEqual(conversation.latest_body, 'Newest note')
+        self.assertEqual(conversation.unread_count, 2)
+        self.assertContains(response, 'data-conversation-id="%s"' % self.conversation.pk)
+        self.assertContains(response, 'Newest note')
+
+    def test_list_marks_own_latest_message(self):
+        Message.objects.create(conversation=self.conversation, sender=self.owner, body='My reply')
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse('chat:conversation_list'))
+
+        self.assertContains(response, 'You: My reply')
+
+    def test_list_query_count_does_not_grow_with_messages_or_chats(self):
+        self.client.force_login(self.owner)
+        Message.objects.create(conversation=self.conversation, sender=self.requester, body='Hi')
+
+        with CaptureQueriesContext(connection) as small:
+            self.client.get(reverse('chat:conversation_list'))
+
+        for number in range(3):
+            student = User.objects.create_user(username=f'student{number}', password='TestPassword123!')
+            conversation = Conversation.objects.create(item=self.item, owner=self.owner, requester=student)
+            for index in range(5):
+                Message.objects.create(conversation=conversation, sender=student, body=f'Message {index}')
+
+        with CaptureQueriesContext(connection) as large:
+            self.client.get(reverse('chat:conversation_list'))
+
+        self.assertEqual(len(small.captured_queries), len(large.captured_queries))
+
+    def test_outsiders_never_see_other_conversations(self):
+        Message.objects.create(conversation=self.conversation, sender=self.requester, body='Private note')
+        self.client.force_login(self.outsider)
+
+        response = self.client.get(reverse('chat:conversation_list'))
+
+        self.assertNotContains(response, 'Private note')
+        self.assertEqual(list(response.context['conversations']), [])
+
+
+@override_settings(
+    CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}},
+)
+class RealtimeTests(ChatFixtureMixin, TransactionTestCase):
+    def setUp(self):
+        self.make_people()
+
+    def communicator(self, user, path=None, session_key=None):
+        communicator = WebsocketCommunicator(
+            URLRouter(websocket_urlpatterns),
+            path or f'/ws/chat/{self.conversation.pk}/',
+        )
+        communicator.scope['user'] = user
+        if session_key is not None:
+            communicator.scope['session'] = SimpleNamespace(session_key=session_key)
+        return communicator
+
+    def notifications(self, user, session_key=None):
+        return self.communicator(user, '/ws/notifications/', session_key)
+
+    def test_notification_socket_requires_login(self):
+        async def run():
+            socket = self.notifications(AnonymousUser())
+            connected, code = await socket.connect()
+            self.assertFalse(connected)
+            self.assertEqual(code, 4401)
+
+        async_to_sync(run)()
+
+    def test_notification_socket_starts_with_the_unread_total(self):
+        Message.objects.create(conversation=self.conversation, sender=self.requester, body='Hi')
+
+        async def run():
+            socket = self.notifications(self.owner)
+            connected, _ = await socket.connect()
+            self.assertTrue(connected)
+            hello = await socket.receive_json_from(timeout=2)
+            self.assertEqual(hello, {'type': 'hello', 'unread_total': 1})
+            await socket.disconnect()
+
+        async_to_sync(run)()
+
+    def test_recipient_is_notified_with_server_counted_unread_totals(self):
+        async def run():
+            owner_alerts = self.notifications(self.owner)
+            requester_alerts = self.notifications(self.requester)
+            outsider_alerts = self.notifications(self.outsider)
+            for socket in (owner_alerts, requester_alerts, outsider_alerts):
+                connected, _ = await socket.connect()
+                self.assertTrue(connected)
+                await socket.receive_json_from(timeout=2)  # hello
+
+            chat = self.communicator(self.requester)
+            await chat.connect()
+            await chat.send_json_to({'type': 'message', 'body': 'Is it free?', 'client_message_id': 'n-1'})
+            echo = await chat.receive_json_from(timeout=2)
+            self.assertEqual(echo['type'], 'message')
+
+            alert = await owner_alerts.receive_json_from(timeout=2)
+            self.assertEqual(alert['type'], 'message')
+            self.assertEqual(alert['conversation_id'], self.conversation.pk)
+            self.assertEqual(alert['unread_total'], 1)
+            self.assertEqual(alert['conversation_unread'], 1)
+            self.assertEqual(alert['counterpart_name'], 'rt_requester')
+            self.assertEqual(alert['message']['body'], 'Is it free?')
+
+            own_copy = await requester_alerts.receive_json_from(timeout=2)
+            self.assertEqual(own_copy['unread_total'], 0)
+            self.assertEqual(own_copy['counterpart_name'], 'rt_owner')
+
+            # Nothing about this conversation reaches anyone else.
+            self.assertTrue(await outsider_alerts.receive_nothing(timeout=0.3))
+
+            for socket in (owner_alerts, requester_alerts, outsider_alerts, chat):
+                await socket.disconnect()
+
+        async_to_sync(run)()
+
+    def test_resending_the_same_client_id_does_not_duplicate(self):
+        async def run():
+            sender = self.communicator(self.requester)
+            receiver = self.communicator(self.owner)
+            await sender.connect()
+            await receiver.connect()
+
+            payload = {'type': 'message', 'body': 'Only once', 'client_message_id': 'retry-me'}
+            await sender.send_json_to(payload)
+            first = await sender.receive_json_from(timeout=2)
+            await receiver.receive_json_from(timeout=2)
+
+            await sender.send_json_to(payload)
+            second = await sender.receive_json_from(timeout=2)
+            self.assertEqual(first['message']['id'], second['message']['id'])
+            self.assertEqual(second['client_message_id'], 'retry-me')
+            # The other participant isn't sent the duplicate.
+            self.assertTrue(await receiver.receive_nothing(timeout=0.3))
+
+            await sender.disconnect()
+            await receiver.disconnect()
+
+        async_to_sync(run)()
+        self.assertEqual(Message.objects.filter(body='Only once').count(), 1)
+
+    def test_malformed_client_ids_are_rejected(self):
+        async def run():
+            socket = self.communicator(self.requester)
+            await socket.connect()
+            await socket.send_json_to({'type': 'message', 'body': 'Hi', 'client_message_id': 'has spaces!'})
+            response = await socket.receive_json_from(timeout=2)
+            self.assertEqual(response['type'], 'error')
+            await socket.disconnect()
+
+        async_to_sync(run)()
+        self.assertFalse(Message.objects.exists())
+
+    def test_heartbeat_ping_gets_a_pong(self):
+        async def run():
+            for socket in (self.communicator(self.requester), self.notifications(self.requester)):
+                await socket.connect()
+                if socket.scope['path'].endswith('/notifications/'):
+                    await socket.receive_json_from(timeout=2)  # hello
+                await socket.send_json_to({'type': 'ping'})
+                self.assertEqual(await socket.receive_json_from(timeout=2), {'type': 'pong'})
+                await socket.disconnect()
+
+        async_to_sync(run)()
+
+    def test_sending_too_fast_is_rate_limited(self):
+        async def run():
+            socket = self.communicator(self.requester)
+            await socket.connect()
+            errors = 0
+            for number in range(12):
+                await socket.send_json_to({
+                    'type': 'message', 'body': f'Spam {number}', 'client_message_id': f'spam-{number}',
+                })
+                reply = await socket.receive_json_from(timeout=2)
+                if reply['type'] == 'error':
+                    errors += 1
+            self.assertEqual(errors, 2)
+            await socket.disconnect()
+
+        async_to_sync(run)()
+        self.assertEqual(Message.objects.count(), 10)
+
+    def test_reading_in_one_tab_updates_the_others(self):
+        Message.objects.create(conversation=self.conversation, sender=self.requester, body='Hi')
+        self.client.force_login(self.owner)
+
+        async def run():
+            other_tab = self.notifications(self.owner)
+            await other_tab.connect()
+            hello = await other_tab.receive_json_from(timeout=2)
+            self.assertEqual(hello['unread_total'], 1)
+
+            await sync_to_async(self.client.post, thread_sensitive=True)(
+                reverse('chat:conversation_mark_read', args=[self.conversation.pk]),
+            )
+
+            update = await other_tab.receive_json_from(timeout=2)
+            self.assertEqual(update['type'], 'read')
+            self.assertEqual(update['unread_total'], 0)
+            await other_tab.disconnect()
+
+        async_to_sync(run)()
+
+    def test_logout_closes_only_that_sessions_sockets(self):
+        self.client.force_login(self.owner)
+        session_key = self.client.session.session_key
+
+        async def run():
+            this_device = self.notifications(self.owner, session_key=session_key)
+            other_device = self.notifications(self.owner, session_key='another-device')
+            for socket in (this_device, other_device):
+                await socket.connect()
+                await socket.receive_json_from(timeout=2)
+
+            await sync_to_async(self.client.post, thread_sensitive=True)(reverse('logout'))
+
+            closed = await this_device.receive_output(timeout=2)
+            self.assertEqual(closed['type'], 'websocket.close')
+            self.assertEqual(closed['code'], 4401)
+            self.assertTrue(await other_device.receive_nothing(timeout=0.3))
+            await other_device.disconnect()
+
+        async_to_sync(run)()

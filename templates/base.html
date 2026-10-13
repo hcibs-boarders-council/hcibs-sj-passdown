@@ -17,7 +17,7 @@
         <link rel="stylesheet" href="{% static 'css/components.css' %}">
         {% block extra_css %}{% endblock %}
     </head>
-    <body class="{% block body_class %}{% endblock %}">
+    <body class="{% block body_class %}{% endblock %}"{% if user.is_authenticated %} data-realtime-url="/ws/notifications/" data-unread-url="{% url 'chat:unread_summary' %}" data-user-id="{{ user.pk }}" data-unread-total="{{ chat_unread_count }}" data-icon-url="{% static 'img/logo-128.png' %}"{% endif %}{% block body_attrs %}{% endblock %}>
         <a class="skip-link" href="#main-content">Skip to main content</a>
 
         <div class="page-frame">
@@ -35,8 +35,13 @@
             {% endblock %}
         </div>
 
+        <div class="toast-region" aria-live="polite" data-toast-region></div>
+
         <script src="{% static 'js/ui.js' %}" defer></script>
         <script src="{% static 'js/nav.js' %}" defer></script>
+        {% if user.is_authenticated %}
+        <script src="{% static 'js/realtime.js' %}" defer></script>
+        {% endif %}
         {% block extra_js %}{% endblock %}
     </body>
 </html>

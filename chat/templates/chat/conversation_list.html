@@ -1,4 +1,3 @@
-
 {% extends 'base.html' %}
 {% load static %}
 
@@ -12,60 +11,53 @@
 
 {% block content %}
 <section class="chat-page" aria-labelledby="chat-title">
-    <header class="chat-page__header">
-        <p class="eyebrow">Stay connected</p>
-        <h1 class="display" id="chat-title">Your chats</h1>
-        <p>Coordinate collection and pass items on.</p>
+    <header class="page-header page-header--split">
+        <div>
+            <p class="eyebrow">Stay connected</p>
+            <h1 class="display" id="chat-title">Your chats</h1>
+            <p class="page-header__lead">Coordinate collection and pass items on. New messages appear here as they arrive.</p>
+        </div>
+        <div class="chat-alerts" data-alerts hidden>
+            <button class="btn btn--ghost btn--sm" type="button" data-alerts-enable hidden>
+                {% include 'partials/icon.html' with name='bell' %}Turn on message alerts
+            </button>
+            <p class="chat-alerts__status" data-alerts-status role="status"></p>
+        </div>
     </header>
 
-    {% if conversations %}
-    <div class="chat-list">
+    <ul class="chat-list"{% if not conversations %} hidden{% endif %} data-chat-list aria-label="Conversations">
         {% for conversation in conversations %}
-        <a class="chat-list__item" href="{% url 'chat:conversation_detail' conversation.pk %}">
-            <span class="avatar">
-                {% if conversation.owner_id == request.user.id %}
-                    {{ conversation.requester.username|first|upper }}
-                {% else %}
-                    {{ conversation.owner.username|first|upper }}
-                {% endif %}
-            </span>
-
-            <span class="chat-list__content">
-                <strong>
-                    {% if conversation.owner_id == request.user.id %}
-                        {{ conversation.requester.username }}
-                    {% else %}
-                        {{ conversation.owner.username }}
-                    {% endif %}
-                </strong>
-                <span class="chat-list__item-title">{{ conversation.item.title }}</span>
-                <span class="chat-list__preview">
-                    {% with latest_message=conversation.recent_messages.0 %}
-                        {% if latest_message %}
-                            {% if latest_message.sender_id == request.user.id %}You: {% endif %}{{ latest_message.body|truncatechars:90 }}
+        <li>
+            <a class="chat-list__item{% if conversation.unread_count %} has-unread{% endif %}" href="{% url 'chat:conversation_detail' conversation.pk %}" data-conversation-row data-conversation-id="{{ conversation.pk }}">
+                <span class="avatar" aria-hidden="true">{% if conversation.owner_id == request.user.id %}{{ conversation.requester.username|first|upper }}{% else %}{{ conversation.owner.username|first|upper }}{% endif %}</span>
+                <span class="chat-list__content">
+                    <span class="chat-list__top">
+                        <strong class="chat-list__name">{% if conversation.owner_id == request.user.id %}{{ conversation.requester.username }}{% else %}{{ conversation.owner.username }}{% endif %}</strong>
+                        {% if conversation.latest_created_at %}
+                        <time class="chat-list__time" datetime="{{ conversation.latest_created_at|date:'c' }}" data-time>{{ conversation.latest_created_at|date:"j M" }}</time>
                         {% else %}
-                            Start the conversation
+                        <time class="chat-list__time" datetime="{{ conversation.updated_at|date:'c' }}" data-time>{{ conversation.updated_at|date:"j M" }}</time>
                         {% endif %}
-                    {% endwith %}
-                </span>
-            </span>
-
-            <span class="chat-list__meta">
-                <time datetime="{{ conversation.updated_at|date:'c' }}">{{ conversation.updated_at|date:"j M" }}</time>
-                {% if conversation.unread_count %}
-                    <span class="chat-unread" aria-label="{{ conversation.unread_count }} unread messages">
-                        {{ conversation.unread_count }}
                     </span>
-                {% endif %}
-            </span>
-        </a>
+                    <span class="chat-list__item-title">{{ conversation.item.title }}</span>
+                    <span class="chat-list__bottom">
+                        <span class="chat-list__preview" data-preview>{% if conversation.latest_body %}{% if conversation.latest_sender_id == request.user.id %}You: {% endif %}{{ conversation.latest_body|truncatechars:90 }}{% else %}No messages yet — say hello{% endif %}</span>
+                        <span class="chat-unread" data-unread{% if not conversation.unread_count %} hidden{% endif %}><span data-unread-value>{{ conversation.unread_count }}</span><span class="visually-hidden"> unread</span></span>
+                    </span>
+                </span>
+            </a>
+        </li>
         {% endfor %}
-    </div>
-    {% else %}
-    <div class="chat-empty">
-        <h2>No chats yet</h2>
-        <p>When you contact an item's owner, your conversation will appear here.</p>
-        <a class="btn btn--primary" href="{% url 'home' %}">Browse passdowns</a>
+    </ul>
+
+    {% if not conversations %}
+    <div class="empty-state" data-chat-empty>
+        <div class="empty-state__art" aria-hidden="true">{% include 'partials/category_art.html' with category='other' %}</div>
+        <h2 class="empty-state__title">No chats yet</h2>
+        <p>When you message an item's owner — or someone claims your item and you reply — the conversation appears here.</p>
+        <div class="empty-state__actions">
+            <a class="btn btn--primary" href="{% url 'home' %}">Browse passdowns</a>
+        </div>
     </div>
     {% endif %}
 </section>

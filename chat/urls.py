@@ -6,6 +6,7 @@ app_name = 'chat'
 
 urlpatterns = [
     path('', views.conversation_list, name='conversation_list'),
+    path('unread/', views.unread_summary, name='unread_summary'),
     path(
         'start/<int:item_id>/',
         views.start_conversation,

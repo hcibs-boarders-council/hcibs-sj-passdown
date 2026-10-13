@@ -84,6 +84,9 @@ if IS_PRODUCTION and not ALLOWED_HOSTS:
 # Application definition
 
 INSTALLED_APPS = [
+    # Must come first: makes `manage.py runserver` serve the ASGI app, so
+    # WebSockets (live chat and notifications) work in development too.
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -197,7 +200,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Times are shown in Singapore time. With USE_TZ = True the database keeps
+# storing timestamps in UTC, so this changes display only, not stored data.
+TIME_ZONE = 'Asia/Singapore'
 
 USE_I18N = True
 

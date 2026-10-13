@@ -1,4 +1,3 @@
-
 {% extends 'base.html' %}
 {% load static %}
 
@@ -8,54 +7,72 @@
 <link rel="stylesheet" href="{% static 'css/pages/chat.css' %}">
 {% endblock %}
 
-{% block body_class %}page-chat{% endblock %}
+{% block body_class %}page-chat page-chat-thread{% endblock %}
+
+{% block body_attrs %} data-open-conversation-id="{{ conversation.pk }}"{% endblock %}
 
 {% block content %}
 <section
     class="chat-page chat-thread"
     aria-labelledby="chat-title"
+    data-chat
+    data-chat-socket-path="/ws/chat/{{ conversation.pk }}/"
     data-chat-poll-url="{% url 'chat:conversation_messages' conversation.pk %}"
     data-chat-read-url="{% url 'chat:conversation_mark_read' conversation.pk %}"
-    data-chat-websocket-url="/ws/chat/{{ conversation.pk }}/"
     data-current-user-id="{{ request.user.id }}"
+    data-latest-message-id="{{ latest_message_id }}"
 >
-    <a class="chat-thread__back" href="{% url 'chat:conversation_list' %}">← All chats</a>
+    <a class="back-link" href="{% url 'chat:conversation_list' %}">{% include 'partials/icon.html' with name='chevron-left' %}All chats</a>
 
-    <header class="chat-thread__header">
-        <span class="avatar">{{ other_participant.username|first|upper }}</span>
-        <div>
-            <h1 id="chat-title">{{ other_participant.username }}</h1>
-            <a href="{% url 'item_detail' conversation.item_id %}">{{ conversation.item.title }}</a>
+    <header class="card chat-thread__header">
+        <span class="avatar" aria-hidden="true">{{ other_participant.username|first|upper }}</span>
+        <div class="chat-thread__who">
+            <h1 class="chat-thread__name" id="chat-title">{{ other_participant.username }}</h1>
+            <p class="chat-thread__role">{% if is_owner %}Asked about your item{% else %}Item owner{% endif %}</p>
         </div>
+        <a class="chat-thread__item" href="{% url 'item_detail' conversation.item_id %}">
+            <span class="chat-thread__item-media tile--{{ conversation.item.category }}" aria-hidden="true">
+                {% if item_photo %}
+                <img src="{{ item_photo.image.url }}" alt="" width="44" height="44" loading="lazy">
+                {% else %}
+                {% include 'partials/category_art.html' with category=conversation.item.category %}
+                {% endif %}
+            </span>
+            <span class="chat-thread__item-text">
+                <span class="chat-thread__item-title">{{ conversation.item.title }}</span>
+                <span class="status-chip status-chip--{{ conversation.item.status }}">{{ conversation.item.get_status_display }}</span>
+            </span>
+        </a>
     </header>
 
-    <div
-    class="chat-thread__messages"
-    aria-label="Messages"   
-    aria-live="polite"
-    data-latest-message-id="{{ chat_messages.last.pk|default:0 }}"
-    >
+    <p class="chat-thread__connection" data-chat-status role="status" hidden></p>
+
+    <div class="chat-thread__messages" role="log" aria-label="Messages" data-chat-messages tabindex="0">
         {% for message in chat_messages %}
-        <article class="chat-message{% if message.sender_id == request.user.id %} chat-message--mine{% endif %}">
+        <article class="chat-message{% if message.sender_id == request.user.id %} chat-message--mine{% endif %}" data-message-id="{{ message.pk }}">
             <p class="chat-message__sender">
-                {% if message.sender_id == request.user.id %}You{% else %}{{ message.sender.username }}{% endif %}
+                <span>{% if message.sender_id == request.user.id %}You{% else %}{{ message.sender.username }}{% endif %}</span>
                 <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, g:i a" }}</time>
             </p>
-            <p class="chat-message__body">{{ message.body|linebreaksbr }}</p>
+            <p class="chat-message__body">{{ message.body }}</p>
         </article>
         {% empty %}
-        <p class="chat-thread__empty">No messages yet. Say hello and arrange collection!</p>
+        <p class="chat-thread__empty" data-chat-empty>No messages yet. Say hello and arrange collection!</p>
         {% endfor %}
     </div>
 
-    <form class="chat-compose" method="post">
+    <form class="card chat-compose" method="post" novalidate data-chat-form>
         {% csrf_token %}
-        <label for="{{ form.body.id_for_label }}">Message</label>
+        <input type="hidden" name="client_message_id" value="" data-chat-client-id>
+        <label class="visually-hidden" for="{{ form.body.id_for_label }}">Message {{ other_participant.username }}</label>
         {{ form.body }}
-        {% for error in form.body.errors %}
-        <p class="form-error">{{ error }}</p>
-        {% endfor %}
-        <button class="btn btn--primary" type="submit">Send message</button>
+        {{ form.body.errors }}
+        <div class="chat-compose__bar">
+            <p class="chat-compose__hint" data-chat-hint hidden>Enter to send · Shift + Enter for a new line</p>
+            <button class="btn btn--primary" type="submit" data-chat-send>
+                {% include 'partials/icon.html' with name='send' %}Send
+            </button>
+        </div>
     </form>
 </section>
 {% endblock %}
