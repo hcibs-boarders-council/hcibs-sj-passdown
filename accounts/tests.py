@@ -229,3 +229,12 @@ class AccountEmptyStateTests(TestCase):
 
         self.assertContains(response, 'No claims yet')
         self.assertContains(response, 'Browse passdowns')
+
+
+class LoginNormalisationTests(TestCase):
+    def test_login_accepts_the_same_username_typed_in_full_width_characters(self):
+        User.objects.create_user(username='john', password='secure-password-123')
+
+        response = self.client.post(reverse('login'), {'username': 'ｊｏｈｎ', 'password': 'secure-password-123'})
+
+        self.assertRedirects(response, reverse('home'))

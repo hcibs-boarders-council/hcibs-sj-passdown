@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import OuterRef, Subquery
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -126,18 +126,22 @@ def conversation_detail(request, pk):
 
         if form.is_valid():
             try:
-                message, created = services.create_message(
-                    conversation=conversation,
-                    sender=request.user,
-                    body=form.cleaned_data['body'],
-                    client_message_id=client_message_id,
-                )
-            except services.ClientMessageIdConflict:
-                message, created = services.create_message(
-                    conversation=conversation,
-                    sender=request.user,
-                    body=form.cleaned_data['body'],
-                )
+                try:
+                    message, created = services.create_message(
+                        conversation=conversation,
+                        sender=request.user,
+                        body=form.cleaned_data['body'],
+                        client_message_id=client_message_id,
+                    )
+                except services.ClientMessageIdConflict:
+                    message, created = services.create_message(
+                        conversation=conversation,
+                        sender=request.user,
+                        body=form.cleaned_data['body'],
+                    )
+            except IntegrityError:
+                # The conversation was deleted while the message was being sent.
+                raise Http404('This conversation no longer exists.')
             if created:
                 services.broadcast_message_on_commit(message)
 

@@ -1078,3 +1078,64 @@ class RealtimeTests(ChatFixtureMixin, TransactionTestCase):
             await other_device.disconnect()
 
         async_to_sync(run)()
+
+
+class ReviewHardeningTests(ChatFixtureMixin, TransactionTestCase):
+    """Fixes from the code review: deactivated accounts, logout from anywhere,
+    and a conversation deleted while a message is being sent."""
+
+    def setUp(self):
+        self.make_people()
+
+    @override_settings(CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}})
+    def test_deactivated_account_cannot_keep_sending_on_an_open_socket(self):
+        async def run():
+            socket = WebsocketCommunicator(URLRouter(websocket_urlpatterns), f'/ws/chat/{self.conversation.pk}/')
+            socket.scope['user'] = self.requester
+            connected, _ = await socket.connect()
+            self.assertTrue(connected)
+
+            await sync_to_async(User.objects.filter(pk=self.requester.pk).update)(is_active=False)
+            await socket.send_json_to({'type': 'message', 'body': 'Still here?', 'client_message_id': 'after-ban'})
+
+            closed = await socket.receive_output(timeout=2)
+            self.assertEqual(closed['type'], 'websocket.close')
+            self.assertEqual(closed['code'], 4401)
+
+        async_to_sync(run)()
+        self.assertFalse(Message.objects.exists())
+
+    def test_any_logout_closes_that_sessions_sockets(self):
+        from unittest import mock
+
+        self.client.force_login(self.owner)
+        session_key = self.client.session.session_key
+
+        with mock.patch('chat.signals.end_session_sockets') as end_sockets:
+            self.client.logout()  # the same signal fires for the admin's logout
+
+        end_sockets.assert_called_once_with(self.owner.pk, session_key)
+
+    def test_message_to_a_deleted_conversation_is_a_404_not_a_crash(self):
+        from unittest import mock
+
+        from django.db import IntegrityError
+
+        self.client.force_login(self.requester)
+        url = reverse('chat:conversation_detail', args=[self.conversation.pk])
+
+        with mock.patch('chat.services.Message.objects.create', side_effect=IntegrityError):
+            response = self.client.post(url, {'body': 'Hello?'}, HTTP_ACCEPT='application/json')
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_integrity_errors_other_than_retries_are_not_swallowed(self):
+        from unittest import mock
+
+        from django.db import IntegrityError
+
+        with mock.patch('chat.services.Message.objects.create', side_effect=IntegrityError):
+            with self.assertRaises(IntegrityError):
+                services.create_message(
+                    conversation=self.conversation, sender=self.requester, body='Hi', client_message_id='never-stored',
+                )

@@ -53,7 +53,7 @@
             <p class="field__notice" data-photo-reselect>Browsers clear chosen photos when a form comes back with errors, so please add your photos again.</p>
             {% endif %}
             <p class="photo-picker__status" data-photo-status role="status" aria-live="polite"></p>
-            <ul class="photo-picker__warnings" data-photo-warnings hidden></ul>
+            <div class="photo-picker__warnings" data-photo-warnings role="alert"></div>
             <ul class="photo-picker__list" data-photo-list aria-label="Chosen photos" hidden></ul>
             {{ form.photos.errors }}
         </div>

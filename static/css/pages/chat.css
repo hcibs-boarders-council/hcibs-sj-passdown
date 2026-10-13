@@ -226,6 +226,17 @@
     font-size: 13px;
 }
 
+/* Kept in the page while empty (so screen readers announce updates) but
+   takes no space and shows nothing. */
+.chat-thread__connection:empty {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
 .chat-thread__connection[data-tone="warning"] {
     background: var(--yellow-soft);
 }

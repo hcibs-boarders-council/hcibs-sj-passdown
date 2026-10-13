@@ -83,22 +83,29 @@
         function connect() {
             if (stopped || isActive()) return;
             window.clearTimeout(retryTimer);
+            clearHeartbeat();
+            var current;
             try {
-                socket = new WebSocket(wsUrl(path));
+                current = new WebSocket(wsUrl(path));
             } catch (error) {
                 socket = null;
                 schedule();
                 return;
             }
+            socket = current;
 
-            socket.addEventListener("open", function () {
+            // A socket that was replaced while it was still closing (e.g. after
+            // a heartbeat timeout, then "online") must not touch the new one.
+            current.addEventListener("open", function () {
+                if (current !== socket) return;
                 attempts = 0;
                 everOpened = true;
                 startHeartbeat();
                 if (handlers.open) handlers.open();
             });
 
-            socket.addEventListener("message", function (event) {
+            current.addEventListener("message", function (event) {
+                if (current !== socket) return;
                 var data;
                 try {
                     data = JSON.parse(event.data);
@@ -113,7 +120,8 @@
                 if (handlers.message) handlers.message(data);
             });
 
-            socket.addEventListener("close", function (event) {
+            current.addEventListener("close", function (event) {
+                if (current !== socket) return;
                 clearHeartbeat();
                 socket = null;
                 if (handlers.close) handlers.close(event);

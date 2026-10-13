@@ -146,9 +146,13 @@ def create_message(*, conversation, sender, body, client_message_id=None):
             )
             conversation.mark_read(sender, up_to=message)
     except IntegrityError:
-        if not client_message_id:
+        # Either a retry raced us to the same client id (reuse its message), or
+        # something else failed — e.g. the conversation was deleted mid-send.
+        existing = None
+        if client_message_id:
+            existing = Message.objects.filter(sender=sender, client_message_id=client_message_id).first()
+        if existing is None:
             raise
-        existing = Message.objects.get(sender=sender, client_message_id=client_message_id)
         if existing.conversation_id != conversation.pk:
             raise ClientMessageIdConflict(client_message_id)
         return existing, False

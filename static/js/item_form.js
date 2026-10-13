@@ -168,13 +168,19 @@
         });
         list.hidden = files.length === 0;
 
+        // The warnings and status regions stay in the page (empty = visually
+        // hidden by CSS) so screen readers reliably announce what changes.
         warnings.textContent = "";
-        (problems || []).forEach(function (text) {
-            var warning = document.createElement("li");
-            warning.textContent = text;
-            warnings.appendChild(warning);
-        });
-        warnings.hidden = !(problems && problems.length);
+        if (problems && problems.length) {
+            var warningList = document.createElement("ul");
+            warningList.className = "photo-picker__warning-list";
+            problems.forEach(function (text) {
+                var warning = document.createElement("li");
+                warning.textContent = text;
+                warningList.appendChild(warning);
+            });
+            warnings.appendChild(warningList);
+        }
 
         var full = files.length >= maxFiles;
         if (files.length) {

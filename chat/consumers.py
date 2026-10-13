@@ -3,6 +3,7 @@ from collections import deque
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from django.db import IntegrityError
 
 from . import services
 from .models import Conversation
@@ -110,6 +111,11 @@ class ChatConsumer(SessionAwareConsumer):
             client_message_id,
         )
 
+        if result == "inactive":
+            # The account was deactivated while this socket was open.
+            await self.close(code=4401)
+            return
+
         if result is None:
             # The user no longer has access to this conversation.
             await self.close(code=4404)
@@ -154,8 +160,11 @@ class ChatConsumer(SessionAwareConsumer):
 
     @database_sync_to_async
     def create_message(self, conversation_id, user, body, client_message_id):
+        # Re-checked on every message, so a deactivated account or access
+        # removed mid-connection is honoured without waiting for a reconnect.
+        if not type(user)._default_manager.filter(pk=user.pk, is_active=True).exists():
+            return "inactive"
         try:
-            # Re-checked on every message, so access removed mid-connection is honoured.
             conversation = Conversation.objects.for_user(user).get(pk=conversation_id)
         except Conversation.DoesNotExist:
             return None
@@ -169,6 +178,9 @@ class ChatConsumer(SessionAwareConsumer):
             )
         except services.ClientMessageIdConflict:
             return "conflict"
+        except IntegrityError:
+            # The conversation (or an account) was deleted while sending.
+            return None
 
         message_event = {
             "type": "message",

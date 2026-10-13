@@ -60,17 +60,13 @@
         if (empty) empty.remove();
     }
 
+    // The status line stays in the page (empty = visually hidden by CSS) so
+    // screen readers reliably announce changes to it.
     function setStatus(text, tone) {
         window.clearTimeout(statusTimer);
         if (!statusEl) return;
-        if (!text) {
-            statusEl.hidden = true;
-            statusEl.textContent = "";
-            return;
-        }
-        statusEl.textContent = text;
-        statusEl.setAttribute("data-tone", tone || "info");
-        statusEl.hidden = false;
+        statusEl.textContent = text || "";
+        if (text) statusEl.setAttribute("data-tone", tone || "info");
     }
 
     function setStatusSoon(text, tone) {
@@ -120,13 +116,22 @@
         }
     }
 
-    function remember(message) {
+    // `latestId` is also the catch-up cursor, so it only moves for messages
+    // that arrive in order (socket deliveries and catch-up results). A message
+    // confirmed over HTTP may have a newer id than messages we haven't fetched
+    // yet, so it is only marked as rendered.
+    function remember(message, advanceCursor) {
         rendered.add(message.id);
-        if (message.id > latestId) latestId = message.id;
+        if (advanceCursor !== false && message.id > latestId) latestId = message.id;
     }
 
     function appendMessage(message) {
-        if (!message || !Number.isSafeInteger(message.id) || rendered.has(message.id)) return false;
+        if (!message || !Number.isSafeInteger(message.id)) return false;
+        if (rendered.has(message.id)) {
+            // Already on screen (e.g. confirmed over HTTP); now seen in order.
+            if (message.id > latestId) latestId = message.id;
+            return false;
+        }
         var mine = message.sender_id === currentUserId;
         var stick = nearBottom() || mine;
         removeEmptyState();
@@ -201,7 +206,9 @@
             }
             return response.json().then(function (payload) {
                 if (response.ok && payload && payload.message) {
-                    confirmSent(entry.cmid, payload.message);
+                    confirmSent(entry.cmid, payload.message, true);
+                    // Fetch anything the other person sent before it.
+                    catchUp();
                     return;
                 }
                 pending.delete(entry.cmid);
@@ -213,7 +220,7 @@
         });
     }
 
-    function confirmSent(cmid, message) {
+    function confirmSent(cmid, message, viaHttp) {
         var entry = pending.get(cmid);
         if (!entry) return false;
         window.clearTimeout(entry.timer);
@@ -225,7 +232,7 @@
         }
         var confirmed = buildMessage(message, true);
         entry.el.replaceWith(confirmed);
-        remember(message);
+        remember(message, !viaHttp);
         return true;
     }
 
@@ -347,6 +354,13 @@
         if (pollTimer || sessionEnded) return;
         pollTimer = window.setInterval(function () {
             if (!document.hidden) catchUp();
+            // Keep trying unsent messages over HTTP too, in case WebSockets
+            // are blocked on this network rather than briefly down.
+            if (!socket.isOpen()) {
+                pending.forEach(function (entry) {
+                    if (!entry.httpInFlight) sendOverHttp(entry);
+                });
+            }
         }, 5000);
     }
 

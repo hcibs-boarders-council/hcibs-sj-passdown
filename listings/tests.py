@@ -1238,3 +1238,33 @@ class ItemCardTests(TempMediaMixin, TestCase):
 
         self.assertNotContains(response, 'item-card__fav')
         self.assertNotContains(response, 'icon--heart')
+
+
+class MultiPictureJpegTests(TempMediaMixin, TestCase):
+    """Phone JPEGs with extra pictures attached (Pillow: "MPO") are accepted
+    and stored as a plain JPEG of the main picture."""
+
+    def test_mpo_photo_is_accepted_and_stored_as_jpeg(self):
+        user = get_user_model().objects.create_user(username='camera-user', password='secure-password-123')
+        self.client.force_login(user)
+        main = Image.new('RGB', (1200, 900), 'coral')
+        extra = Image.new('RGB', (300, 200), 'navy')
+        buffer = BytesIO()
+        main.save(buffer, format='MPO', save_all=True, append_images=[extra])
+        self.assertEqual(Image.open(BytesIO(buffer.getvalue())).format, 'MPO')
+
+        response = self.client.post(reverse('item_create'), {
+            'title': 'Camera bag',
+            'description': 'Fits a small camera.',
+            'category': Item.Category.OTHER,
+            'photos': [SimpleUploadedFile('IMG_1234.jpg', buffer.getvalue(), content_type='image/jpeg')],
+        })
+
+        self.assertEqual(response.status_code, 302)
+        photo = Item.objects.get(title='Camera bag').photos.get()
+        self.assertTrue(photo.image.name.endswith('.jpg'))
+        with photo.image.open('rb') as handle:
+            stored = Image.open(BytesIO(handle.read()))
+            self.assertEqual(stored.format, 'JPEG')
+            self.assertEqual(stored.size, (1200, 900))
+            self.assertEqual(getattr(stored, 'n_frames', 1), 1)

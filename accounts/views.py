@@ -14,7 +14,6 @@ from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import AccountDetailsForm
 from chat.models import Conversation
-from chat.services import end_session_sockets
 from listings.models import Claim, Item, ItemPhoto
 
 
@@ -24,7 +23,8 @@ def our_vision(request):
 
 def login(request):
     if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
+        # Same Unicode normalisation (NFKC) Django applies when accounts are created.
+        username = User.normalize_username(request.POST.get('username', '').strip())
         password = request.POST.get('password', '')
         next_url = request.POST.get('next', '')
         errors = []
@@ -58,14 +58,9 @@ def logout(request):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
 
-    user_id = request.user.pk if request.user.is_authenticated else None
-    session_key = request.session.session_key
-
+    # Live chat sockets opened with this session are closed by the
+    # user_logged_out receiver in chat/signals.py.
     auth_logout(request)
-
-    if user_id is not None:
-        # Close live chat/notification sockets opened with this session.
-        end_session_sockets(user_id, session_key)
     return redirect('home')
 
 

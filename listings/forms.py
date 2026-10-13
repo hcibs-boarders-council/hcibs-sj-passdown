@@ -1,7 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .images import PhotoProcessingError, prepare_photo
+from .images import PhotoProcessingError, prepare_photo, stored_format
 from .models import Claim, Item
 
 
@@ -105,7 +105,9 @@ class ItemForm(forms.ModelForm):
 
             image = getattr(photo, 'image', None)
             image_format = getattr(image, 'format', None)
-            if image_format not in SUPPORTED_IMAGE_FORMATS:
+            # Some phone cameras save JPEGs with extra pictures attached, which
+            # Pillow reports as "MPO"; they are .jpg files and stored as JPEG.
+            if stored_format(image_format) not in SUPPORTED_IMAGE_FORMATS:
                 raise ValidationError('Upload only JPEG, PNG, or WebP photos.')
 
             if image.width * image.height > MAX_IMAGE_PIXELS:
