@@ -1041,3 +1041,200 @@ class ClaimConcurrencyTests(TransactionTestCase):
         self.assertEqual(statuses, [Claim.Status.APPROVED, Claim.Status.DECLINED])
         item.refresh_from_db()
         self.assertEqual(item.status, Item.Status.RESERVED)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: photo processing, the Post Item form page, listing cards
+# ---------------------------------------------------------------------------
+
+class TempMediaMixin:
+    """Store uploads in a throwaway MEDIA_ROOT."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._media_directory = TemporaryDirectory()
+        cls._media_override = override_settings(MEDIA_ROOT=cls._media_directory.name)
+        cls._media_override.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._media_override.disable()
+        cls._media_directory.cleanup()
+        super().tearDownClass()
+
+
+def encoded_image(size, image_format, mode='RGB', color='coral', **save_options):
+    buffer = BytesIO()
+    Image.new(mode, size, color).save(buffer, format=image_format, **save_options)
+    return buffer.getvalue()
+
+
+class PhotoProcessingTests(TempMediaMixin, TestCase):
+    """D6: new uploads lose their metadata and are capped at 2000px, format kept."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='photographer', password='secure-password-123')
+        self.client.force_login(self.user)
+
+    def post_photo(self, name, data, content_type):
+        return self.client.post(reverse('item_create'), {
+            'title': 'Desk lamp',
+            'description': 'Works well, warm light.',
+            'category': Item.Category.DAILY_ESSENTIALS,
+            'photos': [SimpleUploadedFile(name, data, content_type=content_type)],
+        })
+
+    def stored_image(self):
+        photo = Item.objects.get(title='Desk lamp').photos.get()
+        with photo.image.open('rb') as handle:
+            image = Image.open(BytesIO(handle.read()))
+            image.load()
+        return photo, image
+
+    def test_location_data_and_comments_are_removed_and_orientation_applied(self):
+        from PIL import ExifTags
+
+        exif = Image.Exif()
+        exif[ExifTags.Base.Orientation] = 6  # stored sideways, displayed rotated
+        exif[ExifTags.Base.Make] = 'TestPhone'
+        exif[ExifTags.IFD.GPSInfo] = {
+            ExifTags.GPS.GPSLatitudeRef: 'N',
+            ExifTags.GPS.GPSLatitude: (1.0, 22.0, 33.0),
+            ExifTags.GPS.GPSLongitudeRef: 'E',
+            ExifTags.GPS.GPSLongitude: (103.0, 49.0, 10.0),
+        }
+        data = encoded_image((3000, 1000), 'JPEG', exif=exif, comment=b'hostel room 12')
+
+        response = self.post_photo('IMG_0001.jpg', data, 'image/jpeg')
+
+        self.assertEqual(response.status_code, 302)
+        photo, image = self.stored_image()
+        self.assertEqual(image.format, 'JPEG')
+        self.assertTrue(photo.image.name.endswith('.jpg'))
+        self.assertEqual(dict(image.getexif()), {})
+        self.assertNotIn('exif', image.info)
+        self.assertNotIn('comment', image.info)
+        # Rotated upright (portrait) and capped at 2000px on the long edge.
+        self.assertEqual(image.size, (667, 2000))
+
+    def test_large_png_is_capped_and_stays_png(self):
+        data = encoded_image((2400, 1200), 'PNG', mode='RGBA', color=(10, 20, 30, 128))
+
+        self.post_photo('diagram.png', data, 'image/png')
+
+        photo, image = self.stored_image()
+        self.assertEqual(image.format, 'PNG')
+        self.assertEqual(image.mode, 'RGBA')
+        self.assertEqual(image.size, (2000, 1000))
+        self.assertTrue(photo.image.name.endswith('.png'))
+
+    def test_small_webp_keeps_format_and_size(self):
+        data = encoded_image((800, 600), 'WEBP')
+
+        self.post_photo('lamp.webp', data, 'image/webp')
+
+        photo, image = self.stored_image()
+        self.assertEqual(image.format, 'WEBP')
+        self.assertEqual(image.size, (800, 600))
+        self.assertTrue(photo.image.name.endswith('.webp'))
+
+    def test_file_extension_follows_the_real_format(self):
+        data = encoded_image((300, 200), 'PNG')
+
+        self.post_photo('actually-a-png.jpg', data, 'image/jpeg')
+
+        photo, image = self.stored_image()
+        self.assertEqual(image.format, 'PNG')
+        self.assertTrue(photo.image.name.endswith('.png'))
+
+    def test_unreadable_photo_is_a_form_error_not_a_crash(self):
+        full = encoded_image((400, 300), 'JPEG', quality=95)
+        truncated = full[: len(full) // 2]
+
+        response = self.post_photo('broken.jpg', truncated, 'image/jpeg')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Item.objects.count(), 0)
+        self.assertIn('could not be read', response.context['form'].errors['photos'][0])
+
+    def test_upload_limits_are_unchanged(self):
+        from . import forms as listing_forms
+
+        self.assertEqual(listing_forms.MAX_PHOTO_COUNT, 5)
+        self.assertEqual(listing_forms.MAX_PHOTO_SIZE, 5 * 1024 * 1024)
+        self.assertEqual(listing_forms.MAX_IMAGE_PIXELS, 25_000_000)
+        self.assertEqual(listing_forms.SUPPORTED_IMAGE_FORMATS, {'JPEG', 'PNG', 'WEBP'})
+
+
+class ItemFormPageTests(TempMediaMixin, TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='poster2', password='secure-password-123')
+        self.client.force_login(self.user)
+
+    def test_form_is_grouped_and_explains_the_photo_rules(self):
+        response = self.client.get(reverse('item_create'))
+
+        self.assertContains(response, '<legend class="form-card__section">About the item</legend>', html=True)
+        self.assertContains(response, '<legend class="form-card__section">Photos</legend>', html=True)
+        self.assertContains(response, '<option value="" selected>Choose a category</option>', html=True)
+        self.assertContains(response, 'data-max-files="5"')
+        self.assertContains(response, 'data-max-bytes="5242880"')
+        self.assertContains(response, 'id="id_photos_helptext"')
+        self.assertContains(response, 'aria-describedby="id_photos_helptext"')
+        self.assertContains(response, 'data-submit-once')
+        self.assertNotContains(response, 'data-photo-reselect')
+
+    def test_typed_text_is_kept_and_photos_must_be_added_again_after_an_error(self):
+        response = self.client.post(reverse('item_create'), {
+            'title': '',
+            'description': 'Barely used graphing calculator.',
+            'category': Item.Category.STATIONERY,
+            'photos': [SimpleUploadedFile('calc.png', encoded_image((60, 40), 'PNG'), content_type='image/png')],
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Item.objects.count(), 0)
+        self.assertContains(response, 'Barely used graphing calculator.')
+        self.assertContains(response, '<option value="stationery" selected>Stationery</option>', html=True)
+        self.assertContains(response, 'Enter a title.')
+        self.assertContains(response, 'data-photo-reselect')
+
+    def test_required_messages_are_specific(self):
+        response = self.client.post(reverse('item_create'), {})
+
+        errors = response.context['form'].errors
+        self.assertEqual(errors['title'], ['Enter a title.'])
+        self.assertEqual(errors['description'], ['Add a short description.'])
+        self.assertEqual(errors['category'], ['Choose a category.'])
+        self.assertEqual(errors['photos'], ['Add at least one photo.'])
+
+
+class ItemCardTests(TempMediaMixin, TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(username='card-owner', password='secure-password-123')
+        self.item = Item.objects.create(
+            owner=self.owner,
+            title='A very long title ' * 8,
+            description='Description',
+            category=Item.Category.BOOKS,
+        )
+        ItemPhoto.objects.create(
+            item=self.item,
+            image=SimpleUploadedFile('cover.png', encoded_image((40, 30), 'PNG'), content_type='image/png'),
+            position=0,
+        )
+
+    def test_card_links_its_title_and_lazy_loads_the_cover(self):
+        response = self.client.get(reverse('home'))
+        detail_url = reverse('item_detail', kwargs={'pk': self.item.pk})
+
+        self.assertContains(response, f'<a class="item-card__link" href="{detail_url}">')
+        self.assertContains(response, 'loading="lazy"')
+        self.assertNotContains(response, 'aria-label="View')
+
+    def test_card_has_no_dead_favourite_button(self):
+        response = self.client.get(reverse('home'))
+
+        self.assertNotContains(response, 'item-card__fav')
+        self.assertNotContains(response, 'icon--heart')

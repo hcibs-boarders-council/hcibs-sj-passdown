@@ -1,6 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
+from .images import PhotoProcessingError, prepare_photo
 from .models import Claim, Item
 
 
@@ -8,6 +9,7 @@ MAX_PHOTO_COUNT = 5
 MAX_PHOTO_SIZE = 5 * 1024 * 1024
 MAX_IMAGE_PIXELS = 25_000_000
 SUPPORTED_IMAGE_FORMATS = {'JPEG', 'PNG', 'WEBP'}
+ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp'
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -43,16 +45,50 @@ class MultipleImageField(forms.ImageField):
 class ItemForm(forms.ModelForm):
     photos = MultipleImageField(
         widget=MultipleFileInput(
-            attrs={'accept': 'image/jpeg,image/png,image/webp'},
+            attrs={
+                'accept': ACCEPTED_IMAGE_TYPES,
+                # Read by item_form.js for early warnings; the server re-checks.
+                'data-max-files': MAX_PHOTO_COUNT,
+                'data-max-bytes': MAX_PHOTO_SIZE,
+            },
         ),
-        help_text='Add 1 to 5 JPEG, PNG, or WebP photos. Each photo can be up to 5 MB.',
+        help_text='Add 1 to 5 photos: JPEG, PNG, or WebP, up to 5 MB each. The first photo is the cover.',
     )
 
     class Meta:
         model = Item
         fields = ['title', 'description', 'category']
+        labels = {
+            'title': 'Title',
+            'description': 'Description',
+            'category': 'Category',
+        }
+        help_texts = {
+            'title': 'Be specific, e.g. “H2 Chemistry ten-year series (2019–2023)”.',
+            'description': 'Condition, size or edition, and anything a junior should know before claiming.',
+        }
+        error_messages = {
+            'title': {'required': 'Enter a title.'},
+            'description': {'required': 'Add a short description.'},
+            'category': {'required': 'Choose a category.'},
+        }
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'placeholder': 'What are you passing down?',
+                'autocomplete': 'off',
+            }),
+            'description': forms.Textarea(attrs={
+                'rows': 5,
+                'placeholder': 'Lightly used, a few pencil notes inside. Collect from Block B.',
+            }),
+        }
 
-    field_order = ['title', 'description', 'category', 'photos']
+    field_order = ['title', 'category', 'description', 'photos']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A friendlier empty choice than Django's "---------".
+        self.fields['category'].choices = [('', 'Choose a category'), *Item.Category.choices]
 
     def clean_photos(self):
         photos = self.cleaned_data['photos']
@@ -78,7 +114,12 @@ class ItemForm(forms.ModelForm):
         if total_size > MAX_PHOTO_COUNT * MAX_PHOTO_SIZE:
             raise ValidationError('Your combined photo upload must be 25 MB or smaller.')
 
-        return photos
+        # Strip location/metadata and cap the size (see listings/images.py).
+        # Done here so an unreadable photo becomes a form error, not a crash.
+        try:
+            return [prepare_photo(photo) for photo in photos]
+        except PhotoProcessingError:
+            raise ValidationError('One of your photos could not be read. Try saving it again or choose a different photo.')
 
 
 class ClaimForm(forms.ModelForm):

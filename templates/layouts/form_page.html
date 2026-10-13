@@ -6,7 +6,8 @@ reference's product-detail section: illustration panel + info pills on the left,
 form card on the right.
 
 Blocks: showcase_art, thumb_a, thumb_b, form_eyebrow, form_title, form_tag,
-        form_subtitle, form_section, form_body, form_footer
+        form_subtitle, form_section (or form_section_heading to replace the
+        whole heading, e.g. with fieldset legends), form_body, form_footer
 {% endcomment %}
 
 {% block extra_css %}
@@ -43,7 +44,7 @@ Blocks: showcase_art, thumb_a, thumb_b, form_eyebrow, form_title, form_tag,
             </div>
             <p class="form-card__subtitle">{% block form_subtitle %}{% endblock %}</p>
 
-            <h2 class="form-card__section">{% block form_section %}Your details{% endblock %}</h2>
+            {% block form_section_heading %}<h2 class="form-card__section">{% block form_section %}Your details{% endblock %}</h2>{% endblock %}
 
             {% block form_body %}{% endblock %}
 

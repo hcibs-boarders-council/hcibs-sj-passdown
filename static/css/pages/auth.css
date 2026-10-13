@@ -139,25 +139,12 @@
     font-weight: 500;
 }
 
-.form-stack {
-    display: grid;
-    gap: 14px;
-}
-
-.field-row {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-}
+/* .form-stack and .field-row live in components.css. */
 
 .form-stack__submit {
     margin-top: 8px;
     min-height: 46px;
     font-size: 15px;
-}
-
-.field__counter {
-    justify-self: end;
 }
 
 .form-card__switch {
@@ -175,6 +162,248 @@
 
 .form-card__switch a:hover {
     color: var(--red-dark);
+}
+
+/* Post Item: grouped fields ---------------------------------------------- */
+
+.form-group {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.form-group > legend {
+    padding: 0;
+}
+
+.item-form .form-group + .form-group > legend {
+    margin-top: 10px;
+}
+
+/* Photo picker ------------------------------------------------------------ */
+
+.photo-picker {
+    position: relative;
+    gap: 10px;
+}
+
+/* Without JavaScript the native file input is the control. */
+.photo-picker input[type="file"] {
+    width: 100%;
+    padding: 12px;
+    border: 1.5px dashed var(--field-border);
+    border-radius: var(--radius);
+    background: #fff;
+    font-size: 14px;
+}
+
+.photo-picker:not(.is-enhanced) .photo-picker__drop {
+    display: none;
+}
+
+/* With JavaScript: the input stays focusable (and is what gets submitted) but
+   is visually replaced by the drop zone label that follows it. */
+.photo-picker.is-enhanced input[type="file"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.photo-picker__drop {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    padding: 16px 18px;
+    border: 1.5px dashed var(--field-border);
+    border-radius: var(--radius);
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+
+/* Not a field label: reset the display-font label styling from base.css. */
+.field .photo-picker__drop {
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.photo-picker__drop:hover,
+.photo-picker__drop.is-dragging {
+    border-color: var(--red-dark);
+    background: #fff7f5;
+}
+
+.photo-picker input[type="file"]:focus-visible + .photo-picker__drop {
+    outline: var(--focus-ring);
+    outline-offset: 2px;
+    border-color: var(--red-dark);
+}
+
+.photo-picker__drop.is-full {
+    border-style: solid;
+    cursor: not-allowed;
+}
+
+.photo-picker__drop.is-full .photo-picker__icon {
+    background: var(--paper-2);
+    color: var(--muted);
+}
+
+.field--error .photo-picker__drop {
+    border-color: var(--red-dark);
+    background: #fff7f5;
+}
+
+.photo-picker__icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--pink);
+    color: var(--red-ink);
+}
+
+.photo-picker__icon .icon {
+    width: 20px;
+    height: 20px;
+}
+
+.photo-picker__text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.photo-picker__cta {
+    color: var(--red-dark);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.photo-picker__hint {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.photo-picker__status {
+    color: var(--ink-soft);
+    font-size: 13px;
+}
+
+.photo-picker__status:empty {
+    display: none;
+}
+
+.photo-picker__warnings {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--yellow-soft);
+    color: var(--ink);
+    font-size: 13px;
+    list-style: none;
+    overflow-wrap: anywhere;
+}
+
+.photo-picker__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.photo-picker__item {
+    position: relative;
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    padding: 6px;
+    border: 1px solid var(--paper-2);
+    border-radius: var(--radius-sm);
+    background: #fff;
+}
+
+.photo-picker__thumb {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    background: var(--paper-2);
+    object-fit: cover;
+}
+
+.photo-picker__meta {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+    padding: 0 2px 2px;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.photo-picker__name {
+    overflow: hidden;
+    color: var(--ink);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.photo-picker__size {
+    color: var(--muted);
+}
+
+.photo-picker__cover {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 2px 8px;
+    border-radius: var(--pill);
+    background: var(--red);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.photo-picker__remove {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(42, 28, 22, 0.75);
+    color: #fff;
+    font-size: 19px;
+    line-height: 1;
+    transition: background-color 0.2s var(--ease);
+}
+
+.photo-picker__remove:hover {
+    background: var(--red-dark);
 }
 
 /* Responsive -------------------------------------------------------------- */
@@ -195,8 +424,12 @@
 }
 
 @media (max-width: 560px) {
-    .field-row {
-        grid-template-columns: 1fr;
+    .photo-picker__drop {
+        padding: 14px;
+    }
+
+    .photo-picker__list {
+        grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
     }
 
     .showcase {

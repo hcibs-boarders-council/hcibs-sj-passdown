@@ -13,7 +13,7 @@
 {% block form_title %}Post an Item{% endblock %}
 {% block form_tag %}Free{% endblock %}
 {% block form_subtitle %}Give something you no longer need a second life with a junior.{% endblock %}
-{% block form_section %}Item details{% endblock %}
+{% block form_section_heading %}{% endblock %}
 
 {% block form_body %}
 {% if form.errors %}
@@ -26,18 +26,38 @@
 </ul>
 {% endif %}
 
-<form method="post" enctype="multipart/form-data" class="form-stack" novalidate data-item-form>
+<form method="post" enctype="multipart/form-data" class="form-stack item-form" novalidate data-item-form data-submit-once>
     {% csrf_token %}
 
-    {% for field in form %}
-    <div class="field{% if field.errors %} field--error{% endif %}">
-        {{ field.label_tag }}
-        {{ field }}
-        {% if field.help_text %}<p class="field__help">{{ field.help_text }}</p>{% endif %}
-        {% if field.name == 'description' %}<p class="field__help field__counter" data-counter-for="{{ field.id_for_label }}" hidden></p>{% endif %}
-        {{ field.errors }}
-    </div>
-    {% endfor %}
+    <fieldset class="form-group">
+        <legend class="form-card__section">About the item</legend>
+        {% include 'partials/form_field.html' with field=form.title counter=True %}
+        {% include 'partials/form_field.html' with field=form.category %}
+        {% include 'partials/form_field.html' with field=form.description counter=True %}
+    </fieldset>
+
+    <fieldset class="form-group">
+        <legend class="form-card__section">Photos</legend>
+        <div class="field photo-picker{% if form.photos.errors %} field--error{% endif %}" data-photo-picker>
+            {# The native input comes first: without JavaScript it is the visible control; with it, it is visually hidden and its focus ring shows on the drop zone label that follows. #}
+            {{ form.photos }}
+            <label class="photo-picker__drop" for="{{ form.photos.id_for_label }}" data-photo-drop>
+                <span class="photo-picker__icon" aria-hidden="true">{% include 'partials/icon.html' with name='upload' %}</span>
+                <span class="photo-picker__text">
+                    <span class="photo-picker__cta" data-photo-cta>Choose photos</span>
+                    <span class="photo-picker__hint" data-photo-drop-hint hidden>or drag and drop them here</span>
+                </span>
+            </label>
+            <p class="field__help" id="{{ form.photos.auto_id }}_helptext">{{ form.photos.help_text }}</p>
+            {% if form.is_bound and form.errors %}
+            <p class="field__notice" data-photo-reselect>Browsers clear chosen photos when a form comes back with errors, so please add your photos again.</p>
+            {% endif %}
+            <p class="photo-picker__status" data-photo-status role="status" aria-live="polite"></p>
+            <ul class="photo-picker__warnings" data-photo-warnings hidden></ul>
+            <ul class="photo-picker__list" data-photo-list aria-label="Chosen photos" hidden></ul>
+            {{ form.photos.errors }}
+        </div>
+    </fieldset>
 
     <button class="btn btn--primary btn--block form-stack__submit" type="submit">Post Item</button>
 </form>
