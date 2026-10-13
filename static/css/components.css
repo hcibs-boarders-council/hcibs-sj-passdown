@@ -74,6 +74,21 @@
     margin-top: 4px;
 }
 
+.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: clamp(20px, 3vw, 32px);
+    color: var(--ink-soft);
+    font-size: 14px;
+}
+
+.pagination__status {
+    font-variant-numeric: tabular-nums;
+}
+
 .text-link {
     color: var(--red-dark);
     font-weight: 600;
@@ -177,41 +192,101 @@
 
 
 /* Navbar search ----------------------------------------------------------- */
+/* A <details> disclosure: the icon is the only visible part until opened.
+   The panel is positioned against .site-nav (not the button), so it drops
+   below the navbar and never covers the Post button or profile menu. */
 
-.site-nav-search {
-    display: flex;
-    align-items: center;
-    gap: 0;
+.nav-search > summary {
+    list-style: none;
+    cursor: pointer;
 }
 
-
-.site-nav-search__input {
+.nav-search > summary::-webkit-details-marker,
+.nav-search > summary::marker {
     display: none;
-    width: 0;
-    min-width: 0;
-    height: 40px;
-    padding: 0;
-    border: 0 solid var(--red-line);
-    border-radius: var(--pill);
+    content: "";
+}
+
+.nav-search[open] > .nav-search__toggle {
+    background: var(--red);
+    color: #fff;
+}
+
+.nav-search__panel {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: min(460px, 100%);
+    padding: 8px;
+    border: 1px solid var(--red-line);
+    border-radius: var(--radius);
     background: var(--paper);
+    box-shadow: var(--shadow-pop);
+    animation: dropdown-in 0.18s var(--ease);
+}
+
+.nav-search__field {
+    position: relative;
+    flex: 1 1 200px;
+    min-width: 0;
+}
+
+.nav-search__field .icon {
+    position: absolute;
+    top: 50%;
+    left: 14px;
+    transform: translateY(-50%);
+    color: var(--red-dark);
+    pointer-events: none;
+}
+
+.nav-search__input {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 14px 0 40px;
+    border: 1px solid var(--field-border);
+    border-radius: var(--pill);
+    background: #fff;
     color: var(--ink);
-    font: inherit;
+    font-size: 15px;
 }
 
-.site-nav-search__input:focus {
-    outline: 2px solid var(--red);
-    outline-offset: 2px;
+.nav-search__input::placeholder {
+    color: var(--placeholder);
 }
 
-.site-nav-search.is-open .site-nav-search__input {
-    display: block;
-    width: clamp(140px, 18vw, 230px);
-    padding: 0 14px;
-    border-width: 1px;
+.nav-search__input:focus {
+    outline: none;
+    border-color: var(--red-dark);
+    box-shadow: var(--focus);
 }
 
-.site-nav-search .site-nav__search {
-    flex: none;
+.nav-search__submit {
+    min-height: 42px;
+}
+
+.nav-search__note {
+    flex-basis: 100%;
+    padding: 0 6px 2px;
+    color: var(--muted);
+    font-size: 12.5px;
+}
+
+/* Unread dot on the mobile menu button (the Chat link is inside the menu). */
+.site-nav__toggle-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--cream);
+    border-radius: 50%;
+    background: var(--red-dark);
 }
 
 /* Profile menu ------------------------------------------------------------ */
@@ -756,21 +831,22 @@
         grid-template-columns: 1fr;
     }
 
-    .site-nav__search {
-        display: none;
-    }
-
     .site-nav__actions {
         gap: 6px;
     }
 
     .site-nav__actions .btn--sm {
-        min-height: 32px;
+        min-height: 36px;
         padding: 0 12px;
     }
 
     .site-brand__name {
         font-size: 19px;
+    }
+
+    .nav-search__panel {
+        left: 0;
+        width: auto;
     }
 
     .site-footer__top {
@@ -785,14 +861,36 @@
     .site-footer__bottom {
         flex-direction: column;
     }
+}
 
-    .site-nav-search.is-open .site-nav-search__input {
+/* Small phones: keep every control reachable without horizontal overflow. */
+@media (max-width: 420px) {
+    .site-nav {
+        gap: 8px;
+    }
+
+    .site-brand__name {
         position: absolute;
-        top: calc(100% + 10px);
-        right: 0;
-        width: min(76vw, 300px);
-        background: var(--paper);
-        box-shadow: 0 8px 24px rgba(40, 20, 20, 0.12);
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .site-nav__actions .icon-btn,
+    .site-nav__toggle,
+    .profile-toggle .avatar {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+@media (max-width: 350px) {
+    .site-nav__actions .btn--sm {
+        padding: 0 10px;
+        font-size: 12.5px;
     }
 }
 

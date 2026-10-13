@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}SJ Passdown{% endblock %}
+{% block title %}{% if query %}“{{ query }}” — {% endif %}SJ Passdown{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/pages/home.css' %}">
@@ -16,24 +16,18 @@
         <h1 class="display hero__title" id="hero-title">Pass it down, pass it&nbsp;on</h1>
         <p class="hero__lead">Browse and claim items generously passed down by your seniors — textbooks, stationery, uniforms and everyday essentials. Always free, always from students like you.</p>
 
-        <form class="hero__search" method="get" action="{% url 'home' %}" role="search">
-            <label class="visually-hidden" for="home-search">Search available items</label>
-
+        <form class="hero__search" method="get" action="{% url 'home' %}" role="search" aria-label="Search and filter available items" data-home-search>
             <div class="search-pill">
+                <label class="visually-hidden" for="home-search">Search available items</label>
                 {% include 'partials/icon.html' with name='search' %}
-                <input class="home-search-input" id="home-search" name="q" type="search" placeholder="Search available items" value="{{ query }}" autocomplete="off">
+                <input class="home-search-input" id="home-search" name="q" type="search" placeholder="Search books, uniforms, stationery…" value="{{ query }}" maxlength="100" autocomplete="off" enterkeyhint="search">
+                <button class="search-pill__submit" type="submit">
+                    <span class="visually-hidden">Search</span>
+                    {% include 'partials/icon.html' with name='arrow-right' %}
+                </button>
             </div>
 
-            <label class="filter-control">
-                {% include 'partials/icon.html' with name='filter' %}
-                <span class="visually-hidden">Filter by category</span>
-                <select class="filter-select" name="category" onchange="this.form.submit()" aria-label="Filter by category">
-                    <option value="">All categories</option>
-                    {% for value, label in categories %}
-                        <option value="{{ value }}" {% if category == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </label>
+            {% include 'partials/category_filter.html' %}
         </form>
 
         <div class="hero__actions">
@@ -56,7 +50,7 @@
                 <rect x="196" y="150" width="136" height="80" rx="12" fill="#fcf5ec"/>
                 <rect x="196" y="150" width="136" height="80" rx="12" fill="none" stroke="#ecd6bf" stroke-width="2"/>
                 <text x="212" y="196" class="hero__tag-text">Free to claim</text>
-                <path d="M300 168c-4-6-12-2-8 4l8 7 8-7c-4-6-12-2-8-4z" fill="#c9443a"/>
+                <path d="M300 168c-4-6-12-2-8 4l8 7 8-7c4-6-4-10-8-4z" fill="#c9443a"/>
                 <circle cx="216" cy="168" r="6" fill="#ffd877"/>
                 <circle cx="230" cy="214" r="5" fill="#aac9dc"/>
                 <circle cx="312" cy="212" r="6" fill="#f8b7c3"/>
@@ -72,45 +66,81 @@
     {% include 'partials/info_pills.html' %}
 </section>
 
-<section class="listing" aria-labelledby="listing-title">
+<section class="listing" aria-labelledby="listing-title" id="listings">
     <div class="listing__head">
-        <h2 class="section-title" id="listing-title">Fresh passdowns</h2>
+        <div class="listing__heading">
+            <h2 class="section-title" id="listing-title">{% if is_filtered %}Search results{% else %}Fresh passdowns{% endif %}</h2>
+            <p class="listing__summary">
+                {% if is_filtered %}
+                {{ result_count }} item{{ result_count|pluralize }}{% if query %} matching “{{ query }}”{% endif %}{% if selected_category_labels %} in {{ selected_category_labels|join:", " }}{% endif %}
+                {% elif result_count %}
+                {{ result_count }} item{{ result_count|pluralize }} available
+                {% endif %}
+            </p>
+        </div>
 
-        {% with count=items|length %}
-            {% if count %}
-                <span class="listing__count">{{ count }} item{{ count|pluralize }} available</span>
+        {% if is_filtered %}
+        <ul class="active-filters" aria-label="Active search and filters">
+            {% if query %}
+            <li>
+                <a class="filter-chip" href="{{ clear_search_url }}">
+                    <span class="visually-hidden">Remove search for </span>“{{ query|truncatechars:32 }}”
+                    {% include 'partials/icon.html' with name='close' %}
+                </a>
+            </li>
             {% endif %}
-        {% endwith %}
+            {% for active in active_filters %}
+            <li>
+                <a class="filter-chip" href="{{ active.remove_url }}">
+                    <span class="visually-hidden">Remove filter </span>{{ active.label }}
+                    {% include 'partials/icon.html' with name='close' %}
+                </a>
+            </li>
+            {% endfor %}
+            <li><a class="filter-chip filter-chip--reset" href="{{ reset_url }}">Clear all</a></li>
+        </ul>
+        {% endif %}
     </div>
 
+    {% if items %}
     <div class="posts">
         {% for item in items %}
-            {% include 'partials/item_card.html' %}
-        {% empty %}
-            <div class="empty-message">
-                <div class="empty-message__art" aria-hidden="true">
-                    {% include 'partials/category_art.html' with category='other' %}
-                </div>
-
-                {% if query and category %}
-                    <h3 class="empty-message__title">No items found.</h3>
-                    <p>No available items match <strong>"{{ query }}"</strong> in the selected category.</p>
-                    <a class="btn btn--primary" href="{% url 'home' %}">Clear search and filter</a>
-                {% elif query %}
-                    <h3 class="empty-message__title">No items found.</h3>
-                    <p>No available items match <strong>"{{ query }}"</strong>.</p>
-                    <a class="btn btn--primary" href="{% url 'home' %}">Clear search</a>
-                {% elif category %}
-                    <h3 class="empty-message__title">No items found.</h3>
-                    <p>There are no available items in this category yet.</p>
-                    <a class="btn btn--primary" href="{% url 'home' %}">Clear filter</a>
-                {% else %}
-                    <h3 class="empty-message__title">No posts yet.</h3>
-                    <p>Click the <strong>+ Post</strong> button to pass down the first item!</p>
-                    <a class="btn btn--primary" href="{% if user.is_authenticated %}{% url 'item_create' %}{% else %}{% url 'login' %}?next={% url 'item_create' %}{% endif %}">+ Post an item</a>
-                {% endif %}
-            </div>
+        {% include 'partials/item_card.html' %}
         {% endfor %}
     </div>
+
+    {% include 'partials/pagination.html' with page_obj=page_obj params=home_params label='Listing pages' %}
+    {% else %}
+    <div class="empty-state listing__empty">
+        <div class="empty-state__art" aria-hidden="true">
+            {% include 'partials/category_art.html' with category='other' %}
+        </div>
+        {% if is_filtered %}
+        <h3 class="empty-state__title">No matching items</h3>
+        <p>
+            Nothing available matches
+            {% if query %}“{{ query }}”{% endif %}{% if query and selected_category_labels %} in {% endif %}{% if selected_category_labels %}{{ selected_category_labels|join:", " }}{% endif %}
+            right now. New passdowns are posted all the time.
+        </p>
+        <div class="empty-state__actions">
+            {% if query and selected_categories %}
+            <a class="btn btn--ghost" href="{{ clear_search_url }}">Clear search</a>
+            <a class="btn btn--ghost" href="{{ clear_filters_url }}">Clear filters</a>
+            {% endif %}
+            <a class="btn btn--primary" href="{{ reset_url }}">Show all items</a>
+        </div>
+        {% else %}
+        <h3 class="empty-state__title">No posts yet.</h3>
+        <p>Click the <strong>+ Post</strong> button to pass down the first item!</p>
+        <div class="empty-state__actions">
+            <a class="btn btn--primary" href="{% if user.is_authenticated %}{% url 'item_create' %}{% else %}{% url 'login' %}?next={% url 'item_create' %}{% endif %}">+ Post an item</a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/home_filters.js' %}" defer></script>
 {% endblock %}

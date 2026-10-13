@@ -1,0 +1,37 @@
+{% comment %}
+Multi-select category filter used inside the home search form.
+
+A native <details> disclosure: the whole pill (the <summary>) toggles the panel,
+and it works without JavaScript (Apply submits the surrounding form, so the
+search query is kept). home_filters.js adds outside-click/Escape closing and
+makes "Clear" keep any search text typed but not yet submitted.
+{% endcomment %}<details class="filter" data-filter>
+    <summary class="filter__toggle">
+        {% include 'partials/icon.html' with name='filter' %}
+        <span class="visually-hidden">Filter by category: </span>
+        <span class="filter__label">{{ filter_label }}</span>
+        {% if selected_categories %}<span class="filter__count" aria-hidden="true">{{ selected_categories|length }}</span>{% endif %}
+        <span class="filter__caret" aria-hidden="true">{% include 'partials/icon.html' with name='chevron-down' %}</span>
+    </summary>
+    <div class="filter__panel">
+        <fieldset class="filter__fieldset">
+            <legend class="filter__legend">Categories</legend>
+            <p class="filter__hint">Choose one or more.</p>
+            <ul class="filter__options">
+                {% for option in category_options %}
+                <li>
+                    <label class="filter__option">
+                        <input type="checkbox" name="category" value="{{ option.value }}"{% if option.selected %} checked{% endif %}>
+                        <span class="filter__check" aria-hidden="true">{% include 'partials/icon.html' with name='check' %}</span>
+                        <span class="filter__option-label">{{ option.label }}</span>
+                    </label>
+                </li>
+                {% endfor %}
+            </ul>
+        </fieldset>
+        <div class="filter__actions">
+            <a class="btn btn--quiet btn--sm" href="{{ clear_filters_url }}" data-filter-clear>Clear</a>
+            <button class="btn btn--primary btn--sm" type="submit">Apply</button>
+        </div>
+    </div>
+</details>

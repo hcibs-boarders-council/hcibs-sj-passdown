@@ -1,0 +1,24 @@
+{% comment %}
+Previous / next pagination that keeps the page's other query parameters.
+
+Usage:
+    {% include 'partials/pagination.html' with page_obj=page_obj %}
+    {% include 'partials/pagination.html' with page_obj=page_obj params=home_params label='Listing pages' %}
+
+`params` (optional QueryDict) is the canonical set of parameters to keep;
+without it, the current request's GET parameters are kept.
+{% endcomment %}{% if page_obj.has_other_pages %}
+<nav class="pagination" aria-label="{{ label|default:'Pagination' }}">
+    {% if page_obj.has_previous %}
+    <a class="btn btn--soft btn--sm" rel="prev" href="{% if params is not None %}{% querystring params page=page_obj.previous_page_number %}{% else %}{% querystring page=page_obj.previous_page_number %}{% endif %}">
+        {% include 'partials/icon.html' with name='chevron-left' %}Previous
+    </a>
+    {% endif %}
+    <span class="pagination__status">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a class="btn btn--soft btn--sm" rel="next" href="{% if params is not None %}{% querystring params page=page_obj.next_page_number %}{% else %}{% querystring page=page_obj.next_page_number %}{% endif %}">
+        Next{% include 'partials/icon.html' with name='chevron-right' %}
+    </a>
+    {% endif %}
+</nav>
+{% endif %}

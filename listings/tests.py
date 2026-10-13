@@ -527,3 +527,144 @@ class ClaimWorkflowTests(TestCase):
 
         self.assertEqual(claim.status, Claim.Status.COMPLETED)
         self.assertEqual(self.item.status, Item.Status.PASSED_ON)
+
+
+class HomeSearchFilterTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='senior',
+            password='secure-password-123',
+        )
+        self.chem_book = self.make_item('Chemistry textbook', 'Lightly used', Item.Category.BOOKS)
+        self.math_book = self.make_item('Maths ten-year series', 'Some pencil marks', Item.Category.BOOKS)
+        self.calculator = self.make_item('Graphing calculator', 'Works with chemistry apps', Item.Category.STATIONERY)
+        self.jacket = self.make_item('School jacket', 'Size M', Item.Category.CLOTHES)
+
+    def make_item(self, title, description, category, status=Item.Status.AVAILABLE):
+        return Item.objects.create(
+            owner=self.user,
+            title=title,
+            description=description,
+            category=category,
+            status=status,
+        )
+
+    def get_home(self, **params):
+        return self.client.get(reverse('home'), params)
+
+    def test_filters_by_multiple_categories(self):
+        response = self.get_home(category=['books', 'clothes'])
+
+        self.assertCountEqual(
+            response.context['items'],
+            [self.chem_book, self.math_book, self.jacket],
+        )
+        self.assertEqual(response.context['selected_categories'], ['books', 'clothes'])
+        self.assertEqual(response.context['filter_label'], 'Books +1')
+
+    def test_unknown_and_duplicate_categories_are_ignored(self):
+        response = self.get_home(category=['books', 'books', 'bogus', ''])
+
+        self.assertEqual(response.context['selected_categories'], ['books'])
+        self.assertEqual(response.context['category'], 'books')
+        self.assertCountEqual(response.context['items'], [self.chem_book, self.math_book])
+
+    def test_invalid_only_categories_show_everything(self):
+        response = self.get_home(category='not-a-category')
+
+        self.assertEqual(response.context['selected_categories'], [])
+        self.assertEqual(response.context['result_count'], 4)
+
+    def test_search_matches_title_and_description_case_insensitively(self):
+        response = self.get_home(q='CHEMISTRY')
+
+        self.assertCountEqual(response.context['items'], [self.chem_book, self.calculator])
+
+    def test_search_and_categories_combine(self):
+        response = self.get_home(q='chemistry', category='stationery')
+
+        self.assertEqual(list(response.context['items']), [self.calculator])
+        self.assertContains(response, '1 item matching')
+
+    def test_search_never_returns_unavailable_items(self):
+        reserved = self.make_item('Chemistry notes', 'Reserved copy', Item.Category.BOOKS, Item.Status.RESERVED)
+        passed_on = self.make_item('Chemistry flashcards', 'Gone', Item.Category.BOOKS, Item.Status.PASSED_ON)
+
+        response = self.get_home(q='chemistry', category='books')
+
+        self.assertNotIn(reserved, response.context['items'])
+        self.assertNotIn(passed_on, response.context['items'])
+        self.assertEqual(list(response.context['items']), [self.chem_book])
+
+    def test_filter_checkboxes_reflect_the_selection(self):
+        response = self.get_home(category='books')
+        content = response.content.decode()
+
+        self.assertRegex(content, r'<input type="checkbox" name="category" value="books" checked>')
+        self.assertRegex(content, r'<input type="checkbox" name="category" value="clothes">')
+        self.assertNotContains(response, 'onchange=')
+
+    def test_navbar_search_keeps_selected_categories_on_home(self):
+        response = self.get_home(q='chem', category=['books', 'stationery'])
+        content = response.content.decode()
+        nav_form = content[content.index('class="nav-search__panel"'):]
+        nav_form = nav_form[:nav_form.index('</form>')]
+
+        self.assertIn('<input type="hidden" name="category" value="books">', nav_form)
+        self.assertIn('<input type="hidden" name="category" value="stationery">', nav_form)
+        self.assertIn('value="chem"', nav_form)
+
+    def test_navbar_search_is_available_on_other_pages(self):
+        response = self.client.get(reverse('login'))
+        content = response.content.decode()
+
+        self.assertIn('class="nav-search__panel" action="%s"' % reverse('home'), content)
+        self.assertNotIn('<input type="hidden" name="category"', content)
+
+    def test_removing_one_filter_keeps_the_rest(self):
+        response = self.get_home(q='chem', category=['books', 'clothes'])
+        remove_links = {
+            active['value']: active['remove_url'] for active in response.context['active_filters']
+        }
+
+        self.assertEqual(remove_links['books'], reverse('home') + '?q=chem&category=clothes')
+        self.assertEqual(remove_links['clothes'], reverse('home') + '?q=chem&category=books')
+        self.assertEqual(
+            response.context['clear_search_url'],
+            reverse('home') + '?category=books&category=clothes',
+        )
+        self.assertEqual(response.context['clear_filters_url'], reverse('home') + '?q=chem')
+
+    def test_empty_results_offer_targeted_resets(self):
+        response = self.get_home(q='trombone', category='books')
+
+        self.assertEqual(response.context['result_count'], 0)
+        self.assertContains(response, 'No matching items')
+        self.assertContains(response, 'href="%s"' % response.context['clear_search_url'])
+        self.assertContains(response, 'href="%s"' % response.context['clear_filters_url'])
+        self.assertContains(response, 'Show all items')
+
+    def test_empty_site_shows_first_post_prompt(self):
+        Item.objects.all().delete()
+
+        response = self.get_home()
+
+        self.assertContains(response, 'No posts yet.')
+
+    def test_pagination_keeps_search_and_categories(self):
+        for number in range(30):
+            self.make_item(f'Revision book {number}', 'Chemistry practice', Item.Category.BOOKS)
+
+        response = self.get_home(q='revision', category='books')
+
+        self.assertEqual(response.context['result_count'], 30)
+        self.assertEqual(len(response.context['items']), 24)
+        self.assertContains(response, 'href="?q=revision&amp;category=books&amp;page=2"')
+
+        second_page = self.get_home(q='revision', category='books', page=2)
+        self.assertEqual(len(second_page.context['items']), 6)
+
+    def test_overlong_search_text_is_truncated(self):
+        response = self.get_home(q='a' * 500)
+
+        self.assertEqual(len(response.context['query']), 100)

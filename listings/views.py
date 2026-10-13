@@ -1,10 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Prefetch, Q
-from django.http import Http404
+from django.http import Http404, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
@@ -12,9 +14,35 @@ from .forms import ClaimForm, ItemForm
 from .models import Claim, Item, ItemPhoto
 
 
+HOME_PAGE_SIZE = 24
+MAX_SEARCH_LENGTH = 100
+
+
+def _selected_categories(request):
+    """Valid, de-duplicated category values from ?category=a&category=b (in choice order)."""
+    requested = {value.strip() for value in request.GET.getlist('category')}
+    return [value for value, _ in Item.Category.choices if value in requested]
+
+
+def _home_params(query='', categories=()):
+    """Canonical query parameters for the home page (search + categories)."""
+    params = QueryDict(mutable=True)
+    if query:
+        params['q'] = query
+    if categories:
+        params.setlist('category', list(categories))
+    return params
+
+
+def _home_url(query='', categories=()):
+    encoded = _home_params(query, categories).urlencode()
+    return reverse('home') + (f'?{encoded}' if encoded else '')
+
+
 def home(request):
-    query = request.GET.get('q', '').strip()
-    category = request.GET.get('category', '').strip()
+    query = request.GET.get('q', '').strip()[:MAX_SEARCH_LENGTH]
+    selected_categories = _selected_categories(request)
+    category_labels = dict(Item.Category.choices)
 
     items = (
         Item.objects
@@ -34,21 +62,57 @@ def home(request):
             Q(title__icontains=query) | Q(description__icontains=query)
         )
 
-    valid_categories = {value for value, _ in Item.Category.choices}
+    if selected_categories:
+        items = items.filter(category__in=selected_categories)
 
-    if category in valid_categories:
-        items = items.filter(category=category)
+    paginator = Paginator(items, HOME_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    if not selected_categories:
+        filter_label = 'All categories'
+    elif len(selected_categories) == 1:
+        filter_label = category_labels[selected_categories[0]]
     else:
-        category = ''
+        filter_label = (
+            f'{category_labels[selected_categories[0]]} +{len(selected_categories) - 1}'
+        )
+
+    active_filters = [
+        {
+            'value': value,
+            'label': category_labels[value],
+            'remove_url': _home_url(
+                query,
+                [other for other in selected_categories if other != value],
+            ),
+        }
+        for value in selected_categories
+    ]
 
     return render(
         request,
         'accounts/home.html',
         {
-            'items': items,
+            'items': page_obj.object_list,
+            'page_obj': page_obj,
+            'result_count': paginator.count,
             'query': query,
-            'category': category,
+            # Kept for templates/tests that expect a single value.
+            'category': selected_categories[0] if len(selected_categories) == 1 else '',
+            'selected_categories': selected_categories,
+            'selected_category_labels': [category_labels[value] for value in selected_categories],
             'categories': Item.Category.choices,
+            'category_options': [
+                {'value': value, 'label': label, 'selected': value in selected_categories}
+                for value, label in Item.Category.choices
+            ],
+            'filter_label': filter_label,
+            'active_filters': active_filters,
+            'is_filtered': bool(query or selected_categories),
+            'home_params': _home_params(query, selected_categories),
+            'clear_search_url': _home_url('', selected_categories),
+            'clear_filters_url': _home_url(query),
+            'reset_url': reverse('home'),
         },
     )
 

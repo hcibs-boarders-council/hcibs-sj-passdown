@@ -14,10 +14,11 @@
             <div class="site-footer__col">
                 <h2 class="site-footer__heading">Categories</h2>
                 <ul>
-                    <li>Stationery</li>
-                    <li>Books</li>
-                    <li>Daily Essentials</li>
-                    <li>Clothes</li>
+                    <li><a href="{% url 'home' %}?category=stationery#listings">Stationery</a></li>
+                    <li><a href="{% url 'home' %}?category=books#listings">Books</a></li>
+                    <li><a href="{% url 'home' %}?category=daily_essentials#listings">Daily Essentials</a></li>
+                    <li><a href="{% url 'home' %}?category=clothes#listings">Clothes</a></li>
+                    <li><a href="{% url 'home' %}?category=other#listings">Other</a></li>
                 </ul>
             </div>
             <div class="site-footer__col">

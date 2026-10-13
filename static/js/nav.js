@@ -1,7 +1,10 @@
-
 /* SJ Passdown — navbar behaviour.
-   Mobile menu, profile dropdown, and expandable search. */
-   (function () {
+   Mobile menu, profile dropdown and the expandable search panel.
+
+   The search panel and profile menu are native <details> elements, so they open
+   and work without JavaScript. This script adds: one-open-at-a-time, focus
+   management, outside-click and Escape handling. */
+(function () {
     "use strict";
 
     var nav = document.querySelector("[data-nav]");
@@ -10,45 +13,23 @@
     var toggle = nav.querySelector("[data-nav-toggle]");
     var profile = nav.querySelector("[data-profile-menu]");
     var search = nav.querySelector("[data-nav-search]");
-    var searchToggle = nav.querySelector("[data-nav-search-toggle]");
     var searchInput = nav.querySelector("[data-nav-search-input]");
     var desktop = window.matchMedia("(min-width: 901px)");
 
     function setMenu(open) {
         nav.classList.toggle("is-open", open);
-
         if (toggle) {
             toggle.setAttribute("aria-expanded", String(open));
-            toggle.setAttribute(
-                "aria-label",
-                open ? "Close menu" : "Open menu"
-            );
+            toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
         }
     }
 
-    function setSearch(open, moveFocus) {
-        if (!search || !searchToggle || !searchInput) return;
-
-        search.classList.toggle("is-open", open);
-        searchToggle.setAttribute("aria-expanded", String(open));
-        searchToggle.setAttribute(
-            "aria-label",
-            open ? "Close search" : "Open search"
-        );
-        searchInput.tabIndex = open ? 0 : -1;
-
-        if (open) {
-            if (profile) profile.open = false;
-            setMenu(false);
-
-            if (moveFocus) {
-                searchInput.focus();
-            }
-        } else if (
-            moveFocus &&
-            document.activeElement === searchInput
-        ) {
-            searchToggle.focus();
+    function closeDetails(details, restoreFocus) {
+        if (!details || !details.open) return;
+        details.open = false;
+        if (restoreFocus) {
+            var summary = details.querySelector("summary");
+            if (summary) summary.focus();
         }
     }
 
@@ -57,10 +38,9 @@
         toggle.addEventListener("click", function () {
             var open = !nav.classList.contains("is-open");
             setMenu(open);
-
             if (open) {
-                if (profile) profile.open = false;
-                setSearch(false, false);
+                closeDetails(profile, false);
+                closeDetails(search, false);
             }
         });
     }
@@ -68,69 +48,64 @@
     // Profile dropdown.
     if (profile) {
         profile.addEventListener("toggle", function () {
-            if (profile.open) {
-                setMenu(false);
-                setSearch(false, false);
+            if (!profile.open) return;
+            setMenu(false);
+            closeDetails(search, false);
+        });
+    }
+
+    // Expandable search: opens only from its icon; focus goes to the input.
+    if (search) {
+        search.addEventListener("toggle", function () {
+            if (!search.open) return;
+            setMenu(false);
+            closeDetails(profile, false);
+            if (searchInput) {
+                window.requestAnimationFrame(function () {
+                    searchInput.focus();
+                    var length = searchInput.value.length;
+                    try { searchInput.setSelectionRange(length, length); } catch (e) { /* type=search may not support it */ }
+                });
             }
         });
     }
 
-    // Expandable navbar search.
-    if (searchToggle && searchInput && search) {
-        searchToggle.addEventListener("click", function () {
-            var open = !search.classList.contains("is-open");
-            setSearch(open, open);
-        });
-    }
-
-    // Close menus when clicking outside their respective controls.
+    // Close open controls when clicking outside them.
     document.addEventListener("click", function (event) {
-        if (!nav.contains(event.target)) {
+        var target = event.target;
+        if (!nav.contains(target)) {
             setMenu(false);
-
-            if (profile) profile.open = false;
-            setSearch(false, false);
+            closeDetails(profile, false);
+            closeDetails(search, false);
             return;
         }
-
-        if (profile && profile.open && !profile.contains(event.target)) {
-            profile.open = false;
-        }
-
-        if (search && search.classList.contains("is-open")
-            && !search.contains(event.target)) {
-            setSearch(false, false);
-        }
+        if (profile && profile.open && !profile.contains(target)) closeDetails(profile, false);
+        if (search && search.open && !search.contains(target)) closeDetails(search, false);
     });
 
-    // Escape closes the most relevant open control.
+    // Escape closes the most relevant open control and returns focus to it.
     document.addEventListener("keydown", function (event) {
         if (event.key !== "Escape") return;
 
-        if (search && search.classList.contains("is-open")) {
+        if (search && search.open) {
             event.preventDefault();
-            setSearch(false, true);
+            closeDetails(search, true);
             return;
         }
-
         if (profile && profile.open) {
-            profile.open = false;
-            var summary = profile.querySelector("summary");
-            if (summary) summary.focus();
+            closeDetails(profile, true);
             return;
         }
-
         if (nav.classList.contains("is-open")) {
             setMenu(false);
             if (toggle) toggle.focus();
         }
     });
 
-    // Reset the mobile menu when switching to desktop layout.
+    // Reset the mobile menu when switching to the desktop layout.
     var onChange = function (event) {
         if (event.matches) setMenu(false);
     };
-
     if (desktop.addEventListener) {
         desktop.addEventListener("change", onChange);
     } else if (desktop.addListener) {
