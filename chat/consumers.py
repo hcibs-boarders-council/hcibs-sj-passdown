@@ -4,6 +4,7 @@ from collections import deque
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.db import IntegrityError
+from django.contrib.auth import get_user_model
 
 from . import services
 from .models import Conversation
@@ -162,7 +163,12 @@ class ChatConsumer(SessionAwareConsumer):
     def create_message(self, conversation_id, user, body, client_message_id):
         # Re-checked on every message, so a deactivated account or access
         # removed mid-connection is honoured without waiting for a reconnect.
-        if not type(user)._default_manager.filter(pk=user.pk, is_active=True).exists():
+        User = get_user_model()
+
+        if not User._default_manager.filter(
+            pk=user.pk,
+            is_active=True,
+        ).exists():
             return "inactive"
         try:
             conversation = Conversation.objects.for_user(user).get(pk=conversation_id)
