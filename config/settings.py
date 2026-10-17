@@ -77,13 +77,9 @@ if IS_PRODUCTION and DEBUG:
         "DJANGO_DEBUG must be false in production."
     )
 
-# Allow the current Cloud Run hostname by default.
-# Add any future Firebase Hosting hostname through
-# DJANGO_ALLOWED_HOSTS, separated by commas.
 ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
     [
-        "hcibs-sj-passdown.cloud.run",
         "localhost",
         "127.0.0.1",
     ],
@@ -114,8 +110,11 @@ INSTALLED_APPS = [
     "chat.apps.ChatConfig",
 ]
 
+
+# Middleware
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -123,6 +122,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
 
 ROOT_URLCONF = "config.urls"
 
@@ -169,11 +169,6 @@ CHANNEL_LAYERS = {
 # Database
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-if IS_PRODUCTION and not DATABASE_URL:
-    raise ImproperlyConfigured(
-        "DATABASE_URL must be configured in production."
-    )
-
 if DATABASE_URL:
     DATABASES = {
         "default": database_from_url(DATABASE_URL)
@@ -188,15 +183,11 @@ else:
             "USER": os.environ.get(
                 "POSTGRES_USER", "hcibs_sj_user"
             ),
-            "PASSWORD": os.environ.get(
-                "POSTGRES_PASSWORD", "12345"
-            ),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
             "HOST": os.environ.get(
                 "POSTGRES_HOST", "localhost"
             ),
-            "PORT": os.environ.get(
-                "POSTGRES_PORT", "5432"
-            ),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
         }
     }
 
@@ -237,13 +228,25 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static and uploaded files
+# Static files
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
+# WhiteNoise serves collected static files in production.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": (
+            "whitenoise.storage.CompressedStaticFilesStorage"
+        ),
+    },
+}
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

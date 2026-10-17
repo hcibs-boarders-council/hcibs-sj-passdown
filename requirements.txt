@@ -28,4 +28,4 @@ typing_extensions==4.16.0
 ujson==6.0.0
 zope.interface==8.6
 firebase-admin>=6.5.0
-
+whitenoise>=6.9.0,<7.0
