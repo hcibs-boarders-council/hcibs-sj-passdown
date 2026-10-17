@@ -1,4 +1,6 @@
+
 {% extends 'layouts/form_page.html' %}
+{% load static %}
 
 {% block title %}Log in — SJ Passdown{% endblock %}
 
@@ -21,22 +23,48 @@
 </ul>
 {% endif %}
 
-<form method="post" class="form-stack" novalidate data-submit-once>
+<form method="post"
+      class="form-stack"
+      novalidate
+      data-submit-once
+      data-firebase-login
+      data-login-url="{% url 'firebase_login' %}">
     {% csrf_token %}
-    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+    {% if next %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% endif %}
+
+    <p data-firebase-status role="status" aria-live="polite"></p>
 
     <div class="field">
-        <label for="id_username">Username</label>
-        <input type="text" id="id_username" name="username" placeholder="Your username" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false">
+        <label for="id_email">Email</label>
+        <input type="email"
+               id="id_email"
+               name="email"
+               placeholder="Your email address"
+               value="{{ email|default:'' }}"
+               autocomplete="email"
+               required>
     </div>
 
     <div class="field">
         <label for="id_password">Password</label>
-        <input type="password" id="id_password" name="password" placeholder="Your password" autocomplete="current-password">
+        <input type="password"
+               id="id_password"
+               name="password"
+               placeholder="Your password"
+               autocomplete="current-password"
+               required>
     </div>
 
-    <button class="btn btn--primary btn--block form-stack__submit" type="submit">Log In</button>
+    <button class="btn btn--primary btn--block form-stack__submit"
+            type="submit">
+        Log In
+    </button>
 </form>
+
+<script type="module" src="{% static 'js/firebase-auth.js' %}"></script>
 {% endblock %}
 
 {% block form_footer %}

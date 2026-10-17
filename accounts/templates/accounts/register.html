@@ -1,4 +1,6 @@
+
 {% extends 'layouts/form_page.html' %}
+{% load static %}
 
 {% block title %}Sign up — SJ Passdown{% endblock %}
 
@@ -21,36 +23,76 @@
 </ul>
 {% endif %}
 
-<form method="post" class="form-stack" novalidate data-submit-once>
+<form method="post"
+      class="form-stack"
+      novalidate
+      data-submit-once
+      data-firebase-register
+      data-verify-url="{% url 'verify_email' %}">
     {% csrf_token %}
+
+    <p data-firebase-status role="status" aria-live="polite"></p>
 
     <div class="field-row">
         <div class="field">
             <label for="id_username">Username</label>
-            <input type="text" id="id_username" name="username" placeholder="Pick a username" value="{{ username }}" maxlength="150" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="id_username_helptext">
-            <p class="field__help" id="id_username_helptext">Letters, numbers and @ . + - _ only. Other students see this name.</p>
+            <input type="text"
+                   id="id_username"
+                   name="username"
+                   placeholder="Pick a username"
+                   value="{{ username|default:'' }}"
+                   maxlength="150"
+                   autocomplete="username"
+                   autocapitalize="none"
+                   spellcheck="false"
+                   aria-describedby="id_username_helptext"
+                   required>
+            <p class="field__help" id="id_username_helptext">
+                Letters, numbers and @ . + - _ only. Other students see this name.
+            </p>
         </div>
 
         <div class="field">
             <label for="id_email">Email</label>
-            <input type="email" id="id_email" name="email" placeholder="you@example.com" value="{{ email }}" autocomplete="email">
+            <input type="email"
+                   id="id_email"
+                   name="email"
+                   placeholder="you@example.com"
+                   value="{{ email|default:'' }}"
+                   autocomplete="email"
+                   required>
         </div>
     </div>
 
     <div class="field-row">
         <div class="field">
             <label for="id_password">Password</label>
-            <input type="password" id="id_password" name="password" placeholder="At least 8 characters" autocomplete="new-password">
+            <input type="password"
+                   id="id_password"
+                   name="password"
+                   placeholder="At least 8 characters"
+                   autocomplete="new-password"
+                   required>
         </div>
 
         <div class="field">
             <label for="id_password_confirmation">Confirm Password</label>
-            <input type="password" id="id_password_confirmation" name="password_confirmation" placeholder="Type it again" autocomplete="new-password">
+            <input type="password"
+                   id="id_password_confirmation"
+                   name="password_confirmation"
+                   placeholder="Type it again"
+                   autocomplete="new-password"
+                   required>
         </div>
     </div>
 
-    <button class="btn btn--primary btn--block form-stack__submit" type="submit">Sign Up</button>
+    <button class="btn btn--primary btn--block form-stack__submit"
+            type="submit">
+        Sign Up
+    </button>
 </form>
+
+<script type="module" src="{% static 'js/firebase-auth.js' %}"></script>
 {% endblock %}
 
 {% block form_footer %}

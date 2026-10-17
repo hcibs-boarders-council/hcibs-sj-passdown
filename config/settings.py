@@ -13,10 +13,19 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 from pathlib import Path
 from urllib.parse import unquote, urlparse
+
 from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Firebase Admin SDK service account credentials.
+# Keep this JSON file private and never commit it to Git.
+FIREBASE_SERVICE_ACCOUNT_KEY = (
+    BASE_DIR
+    / "secrets"
+    / "hcibs-sj-passdown-firebase-adminsdk-fbsvc-767c25e06f.json"
+)
 
 
 def env_bool(name, default=False):
@@ -51,7 +60,6 @@ def database_from_url(url):
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-
 IS_PRODUCTION = os.environ.get('DJANGO_ENV', 'development').lower() == 'production'
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
@@ -84,8 +92,7 @@ if IS_PRODUCTION and not ALLOWED_HOSTS:
 # Application definition
 
 INSTALLED_APPS = [
-    # Must come first: makes `manage.py runserver` serve the ASGI app, so
-    # WebSockets (live chat and notifications) work in development too.
+    # Must come first: makes runserver serve the ASGI app.
     'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -128,7 +135,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
-
 ASGI_APPLICATION = 'config.asgi.application'
 
 REDIS_URL = os.environ.get('REDIS_URL')
@@ -150,8 +156,6 @@ CHANNEL_LAYERS = {
 }
 
 # Database
-# https://docs.djangoproject.com/en/6.1/ref/settings/#databases
-
 
 if IS_PRODUCTION and not os.environ.get('DATABASE_URL'):
     raise ImproperlyConfigured(
@@ -176,8 +180,8 @@ DATABASES = {
         }
     )
 }
+
 # Password validation
-# https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -194,23 +198,14 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/6.1/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
-# Times are shown in Singapore time. With USE_TZ = True the database keeps
-# storing timestamps in UTC, so this changes display only, not stored data.
 TIME_ZONE = 'Asia/Singapore'
-
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.1/howto/static-files/
+# Static files
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
@@ -222,6 +217,8 @@ STATICFILES_DIRS = [
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Security
+
 SECURE_PROXY_SSL_HEADER = (
     ('HTTP_X_FORWARDED_PROTO', 'https')
     if env_bool('DJANGO_SECURE_PROXY_SSL_HEADER', not DEBUG)
@@ -231,10 +228,12 @@ SESSION_COOKIE_SECURE = env_bool('DJANGO_SESSION_COOKIE_SECURE', not DEBUG)
 CSRF_COOKIE_SECURE = env_bool('DJANGO_CSRF_COOKIE_SECURE', not DEBUG)
 
 # Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
+# Emails are printed to the terminal during local development.
+# Configure an SMTP backend separately when you want real email delivery.
 
 MAILERS = {
     'default': {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        'OPTIONS': {},
     },
 }

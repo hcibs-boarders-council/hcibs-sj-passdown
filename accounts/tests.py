@@ -141,11 +141,19 @@ class RegistrationTests(TestCase):
         data.update(overrides)
         return self.client.post(reverse('register'), data)
 
-    def test_valid_registration_creates_the_account(self):
-        response = self.post()
 
-        self.assertRedirects(response, reverse('login'))
-        self.assertTrue(User.objects.filter(username='new_student').exists())
+def test_valid_registration_creates_an_inactive_account_pending_verification(self):
+    response = self.post()
+
+    self.assertRedirects(response, reverse('verify_email'))
+
+    user = User.objects.get(username='new_student')
+    self.assertFalse(user.is_active)
+    self.assertTrue(
+        user.email_verification.code_hash
+    )
+    self.assertEqual(user.email, 'new@example.com')
+
 
     def test_overlong_username_is_rejected_without_a_server_error(self):
         response = self.post(username='a' * 151)

@@ -10,3 +10,4 @@ staticfiles/
 !.env.example
 .DS_Store
 db_backups/
+/secrets/

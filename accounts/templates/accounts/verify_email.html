@@ -1,0 +1,103 @@
+
+{% extends 'layouts/form_page.html' %}
+{% load static %}
+
+{% block title %}Verify your email — SJ Passdown{% endblock %}
+
+{% block body_class %}page-auth page-verify-email{% endblock %}
+
+{% block showcase_art %}
+    {% include 'partials/category_art.html' with category='clothes' %}
+{% endblock %}
+
+{% block thumb_b %}
+    {% include 'partials/category_art.html' with category='daily_essentials' %}
+{% endblock %}
+
+{% block form_title %}Verify Your Email{% endblock %}
+{% block form_tag %}Almost there!{% endblock %}
+
+{% block form_subtitle %}
+    Check your inbox and click the verification link Firebase sent you.
+{% endblock %}
+
+{% block form_section %}Email verification{% endblock %}
+
+{% block form_body %}
+<form class="form-stack"
+      data-firebase-verification-page
+      data-complete-url="{% url 'firebase_complete_registration' %}">
+    {% csrf_token %}
+
+    <p data-firebase-status role="status" aria-live="polite">
+        Checking your verification status...
+    </p>
+
+    <div class="form-field">
+        <label for="resume-username">Username</label>
+        <input
+            id="resume-username"
+            name="resume_username"
+            type="text"
+            autocomplete="username"
+            required
+        >
+    </div>
+
+    <div class="form-field">
+        <label for="resume-email">Email address</label>
+        <input
+            id="resume-email"
+            name="resume_email"
+            type="email"
+            autocomplete="email"
+            required
+        >
+    </div>
+
+    <div class="form-field">
+        <label for="resume-password">Password</label>
+        <input
+            id="resume-password"
+            name="resume_password"
+            type="password"
+            autocomplete="current-password"
+            required
+        >
+    </div>
+
+    <button
+        class="btn btn--primary btn--block"
+        type="button"
+        data-resume-registration
+    >
+        Finish Registration
+    </button>
+
+    <p class="field__help">
+        Enter the same username, email address and password you used
+        when you registered. Your password will be checked by Firebase.
+    </p>
+
+    <p class="field__help">
+        If you cannot find the verification email, check your spam folder.
+    </p>
+
+    <button
+        class="btn btn--secondary btn--block"
+        type="button"
+        data-resend-verification
+    >
+        Resend verification email
+    </button>
+</form>
+
+<script type="module" src="{% static 'js/firebase-auth.js' %}"></script>
+{% endblock %}
+
+{% block form_footer %}
+<p class="form-card__switch">
+    Already have an account?
+    <a href="{% url 'login' %}">Log In</a>
+</p>
+{% endblock %}
