@@ -1,3 +1,4 @@
+```django
 {% extends 'base.html' %}
 {% load static %}
 
@@ -50,6 +51,19 @@
                 </div>
             </div>
 
+            <div class="post-card__delete">
+                <form method="post"
+                      action="{% url 'item_delete' item.pk %}"
+                      data-submit-once
+                      data-confirm="Are you sure you want to permanently delete '{{ item.title }}'? This cannot be undone.">
+                    {% csrf_token %}
+                    <button class="btn btn--ghost btn--sm" type="submit">
+                        {% include 'partials/icon.html' with name='trash-2' %}
+                        Delete post
+                    </button>
+                </form>
+            </div>
+
             {% if item.claim_total %}
             <details class="claims"{% if item.pending_claim_total or item.status == 'reserved' %} open{% endif %}>
                 <summary class="claims__summary">
@@ -67,13 +81,14 @@
                             </div>
                             <span class="status-chip status-chip--{{ claim.status }}">{{ claim.get_status_display }}</span>
                         </div>
+
                         {% if claim.note %}
                         <p class="claim-row__note">{{ claim.note }}</p>
                         {% endif %}
 
                         <div class="claim-row__actions">
                             {% if claim.status == 'pending' and item.status == 'available' %}
-                            <form method="post" action="{% url 'claim_update' claim.pk 'approve' %}" data-submit-once data-confirm="Reserve “{{ item.title }}” for {{ claim.claimant.username }}? Any other pending claims will be declined.">
+                            <form method="post" action="{% url 'claim_update' claim.pk 'approve' %}" data-submit-once data-confirm="Reserve '{{ item.title }}' for {{ claim.claimant.username }}? Any other pending claims will be declined.">
                                 {% csrf_token %}
                                 <button class="btn btn--primary btn--sm" type="submit">{% include 'partials/icon.html' with name='check' %}Approve</button>
                             </form>
@@ -82,11 +97,11 @@
                                 <button class="btn btn--ghost btn--sm" type="submit">Decline</button>
                             </form>
                             {% elif claim.status == 'approved' %}
-                            <form method="post" action="{% url 'claim_update' claim.pk 'complete' %}" data-submit-once data-confirm="Confirm that {{ claim.claimant.username }} has collected “{{ item.title }}”?">
+                            <form method="post" action="{% url 'claim_update' claim.pk 'complete' %}" data-submit-once data-confirm="Confirm that {{ claim.claimant.username }} has collected '{{ item.title }}'?">
                                 {% csrf_token %}
                                 <button class="btn btn--primary btn--sm" type="submit">{% include 'partials/icon.html' with name='package' %}Mark as passed on</button>
                             </form>
-                            <form method="post" action="{% url 'claim_update' claim.pk 'release' %}" data-submit-once data-confirm="Release the reservation? “{{ item.title }}” becomes available to everyone again.">
+                            <form method="post" action="{% url 'claim_update' claim.pk 'release' %}" data-submit-once data-confirm="Release the reservation? '{{ item.title }}' becomes available to everyone again.">
                                 {% csrf_token %}
                                 <button class="btn btn--ghost btn--sm" type="submit">Release reservation</button>
                             </form>
@@ -123,3 +138,4 @@
     {% endif %}
 </section>
 {% endblock %}
+```

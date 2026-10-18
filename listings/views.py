@@ -431,3 +431,26 @@ def update_claim(request, pk, action):
         item.save(update_fields=['status', 'updated_at'])
         messages.success(request, 'Item marked as passed on.')
         return redirect(_safe_next(request, fallback))
+
+        ```python
+@login_required(login_url='login')
+@require_http_methods(['POST'])
+def delete_item(request, pk):
+    """Allow users to delete only their own posts."""
+    item = get_object_or_404(
+        Item.objects.filter(owner=request.user),
+        pk=pk,
+    )
+
+    title = item.title
+
+    # Remove uploaded photos from storage.
+    for photo in item.photos.all():
+        if photo.image:
+            photo.image.delete(save=False)
+
+    item.delete()
+
+    messages.success(request, f'Your post "{title}" was deleted.')
+    return redirect('my_posts')
+```

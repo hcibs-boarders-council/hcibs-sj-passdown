@@ -1,3 +1,4 @@
+```django
 {% load static %}
 {% with current=request.resolver_match.url_name %}
 <header class="site-nav" data-nav>
@@ -23,17 +24,22 @@
 
     <nav class="site-nav__links" id="site-nav-links" aria-label="Main">
         <a class="nav-pill{% if current == 'home' %} is-active{% endif %}" href="{% url 'home' %}"{% if current == 'home' %} aria-current="page"{% endif %}>Home</a>
+
         {% if user.is_authenticated %}
-        <a class="nav-pill{% if current == 'item_create' %} is-active{% endif %}" href="{% url 'item_create' %}"{% if current == 'item_create' %} aria-current="page"{% endif %}>Post an item</a>
+        <a class="nav-pill{% if current == 'item_create' %} is-active{% endif %}" href="{% url 'item_create' %}"{% if current == 'item_create' %} aria-current="page"{% endif %}>Post an Item</a>
+
+        <a class="nav-pill{% if current == 'my_posts' %} is-active{% endif %}" href="{% url 'my_posts' %}"{% if current == 'my_posts' %} aria-current="page"{% endif %}>My Posts</a>
+        {% endif %}
+
         <a class="nav-pill{% if current == 'our_vision' %} is-active{% endif %}" href="{% url 'our_vision' %}"{% if current == 'our_vision' %} aria-current="page"{% endif %}>Our Vision</a>
+
+        {% if user.is_authenticated %}
         <a class="nav-pill{% if current == 'conversation_list' or current == 'conversation_detail' %} is-active{% endif %}" href="{% url 'chat:conversation_list' %}"{% if current == 'conversation_list' or current == 'conversation_detail' %} aria-current="page"{% endif %}>
             Chat
             <span class="chat-unread" data-unread-count{% if not chat_unread_count %} hidden{% endif %}>
                 <span data-unread-value>{{ chat_unread_count }}</span><span class="visually-hidden"> unread messages</span>
             </span>
         </a>
-        {% else %}
-        <a class="nav-pill{% if current == 'our_vision' %} is-active{% endif %}" href="{% url 'our_vision' %}"{% if current == 'our_vision' %} aria-current="page"{% endif %}>Our Vision</a>
         {% endif %}
     </nav>
 
@@ -43,6 +49,7 @@
                 {% include 'partials/icon.html' with name='search' %}
                 <span class="visually-hidden">Search items</span>
             </summary>
+
             <form class="nav-search__panel" action="{% url 'home' %}" method="get" role="search" aria-label="Search available items">
                 <div class="nav-search__field">
                     {% include 'partials/icon.html' with name='search' %}
@@ -60,10 +67,13 @@
                         data-nav-search-input
                     >
                 </div>
+
                 {% for value in selected_categories %}
                 <input type="hidden" name="category" value="{{ value }}">
                 {% endfor %}
+
                 <button class="btn btn--primary btn--sm nav-search__submit" type="submit">Search</button>
+
                 {% if selected_category_labels %}
                 <p class="nav-search__note">Searching in {{ selected_category_labels|join:", " }}</p>
                 {% endif %}
@@ -88,18 +98,22 @@
                         <p class="profile-dropdown__meta">HCIBS student</p>
                     </div>
                 </div>
+
                 <a href="{% url 'account_detail' %}" class="profile-dropdown__item"{% if current == 'account_detail' %} aria-current="page"{% endif %}>
                     {% include 'partials/icon.html' with name='user' %}
                     Account Details
                 </a>
+
                 <a href="{% url 'my_posts' %}" class="profile-dropdown__item"{% if current == 'my_posts' %} aria-current="page"{% endif %}>
                     {% include 'partials/icon.html' with name='grid' %}
                     My Posts
                 </a>
+
                 <a href="{% url 'my_claims' %}" class="profile-dropdown__item"{% if current == 'my_claims' %} aria-current="page"{% endif %}>
                     {% include 'partials/icon.html' with name='clock' %}
                     My Claims
                 </a>
+
                 <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
                     <button type="submit" class="profile-dropdown__item profile-dropdown__item--danger">
@@ -116,3 +130,4 @@
     </div>
 </header>
 {% endwith %}
+```
