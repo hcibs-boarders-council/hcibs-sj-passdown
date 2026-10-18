@@ -5,16 +5,17 @@ from urllib.parse import unquote, urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Firebase Admin SDK service account credentials.
-# Keep this file private and never commit it to Git.
 FIREBASE_SERVICE_ACCOUNT_KEY = (
     BASE_DIR
     / "secrets"
     / "hcibs-sj-passdown-firebase-adminsdk-fbsvc-767c25e06f.json"
 )
 
+
+# Environment helpers
 
 def env_bool(name, default=False):
     value = os.environ.get(name)
@@ -27,11 +28,7 @@ def env_list(name, default=None):
     value = os.environ.get(name)
     if not value:
         return list(default or [])
-    return [
-        item.strip()
-        for item in value.split(",")
-        if item.strip()
-    ]
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 def database_from_url(url):
@@ -52,7 +49,8 @@ def database_from_url(url):
     }
 
 
-# Environment configuration
+# Core settings
+
 IS_PRODUCTION = (
     os.environ.get("DJANGO_ENV", "development").lower()
     == "production"
@@ -65,7 +63,6 @@ if not SECRET_KEY:
         raise ImproperlyConfigured(
             "DJANGO_SECRET_KEY must be set in production."
         )
-
     SECRET_KEY = (
         "django-insecure-local-development-only-not-for-production"
     )
@@ -86,13 +83,9 @@ CSRF_TRUSTED_ORIGINS = env_list(
     "DJANGO_CSRF_TRUSTED_ORIGINS"
 )
 
-if IS_PRODUCTION and not ALLOWED_HOSTS:
-    raise ImproperlyConfigured(
-        "DJANGO_ALLOWED_HOSTS must be configured in production."
-    )
-
 
 # Cloudinary configuration
+
 CLOUDINARY_CLOUD_NAME = os.environ.get(
     "CLOUDINARY_CLOUD_NAME", ""
 )
@@ -118,7 +111,9 @@ CLOUDINARY_STORAGE = {
 }
 
 
-# Applications
+# Installed applications
+# Keep Django's staticfiles app before Cloudinary Storage.
+
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",
@@ -126,8 +121,8 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
-    "cloudinary_storage",
     "django.contrib.staticfiles",
+    "cloudinary_storage",
     "cloudinary",
     "channels",
     "accounts",
@@ -137,6 +132,7 @@ INSTALLED_APPS = [
 
 
 # Middleware
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -171,32 +167,13 @@ WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
 
-# Redis / Django Channels
-REDIS_URL = os.environ.get("REDIS_URL")
-
-if IS_PRODUCTION and not REDIS_URL:
-    raise ImproperlyConfigured(
-        "REDIS_URL must be configured in production."
-    )
-
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [
-                REDIS_URL or "redis://127.0.0.1:6379/0",
-            ],
-        },
-    },
-}
-
-
 # Database
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL:
     DATABASES = {
-        "default": database_from_url(DATABASE_URL)
+        "default": database_from_url(DATABASE_URL),
     }
 else:
     DATABASES = {
@@ -209,15 +186,33 @@ else:
                 "POSTGRES_USER", "hcibs_sj_user"
             ),
             "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
-            "HOST": os.environ.get(
-                "POSTGRES_HOST", "localhost"
-            ),
+            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
             "PORT": os.environ.get("POSTGRES_PORT", "5432"),
         }
     }
 
 
+# Redis / Channels
+
+REDIS_URL = os.environ.get("REDIS_URL")
+
+if IS_PRODUCTION and not REDIS_URL:
+    raise ImproperlyConfigured(
+        "REDIS_URL must be configured in production."
+    )
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [REDIS_URL or "redis://127.0.0.1:6379/0"],
+        },
+    },
+}
+
+
 # Password validation
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": (
@@ -247,22 +242,22 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 # Internationalization
+
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Singapore"
 USE_I18N = True
 USE_TZ = True
 
 
-# Static and uploaded files
+# Static files and uploaded media
+
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
-# Cloudinary stores uploaded images when credentials are configured.
-# Otherwise, local development continues to use the filesystem.
 STORAGES = {
     "default": {
         "BACKEND": (
@@ -272,17 +267,15 @@ STORAGES = {
         ),
     },
     "staticfiles": {
-        "BACKEND": (
-            "whitenoise.storage.CompressedStaticFilesStorage"
-        ),
+        "BACKEND": "whitenoise.storage.StaticFilesStorage",
     },
 }
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+STATICFILES_STORAGE = "whitenoise.storage.StaticFilesStorage"
 
 
-# Security
+# Security / proxy settings
+
 SECURE_PROXY_SSL_HEADER = (
     ("HTTP_X_FORWARDED_PROTO", "https")
     if env_bool("DJANGO_SECURE_PROXY_SSL_HEADER", not DEBUG)
@@ -299,8 +292,7 @@ CSRF_COOKIE_SECURE = env_bool(
 
 
 # Email
-# This backend prints emails locally instead of sending them.
-# Configure an SMTP backend separately for real email delivery.
+
 MAILERS = {
     "default": {
         "BACKEND": "django.core.mail.backends.console.EmailBackend",
