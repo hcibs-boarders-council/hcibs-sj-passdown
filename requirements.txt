@@ -1,3 +1,4 @@
+
 asgiref==3.12.1
 attrs==26.1.0
 autobahn==26.7.1
@@ -29,3 +30,5 @@ ujson==6.0.0
 zope.interface==8.6
 firebase-admin>=6.5.0
 whitenoise>=6.9.0,<7.0
+cloudinary==1.46.3
+django-cloudinary-storage==0.3.0

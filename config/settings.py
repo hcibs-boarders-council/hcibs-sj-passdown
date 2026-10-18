@@ -79,10 +79,7 @@ if IS_PRODUCTION and DEBUG:
 
 ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
-    [
-        "localhost",
-        "127.0.0.1",
-    ],
+    ["localhost", "127.0.0.1"],
 )
 
 CSRF_TRUSTED_ORIGINS = env_list(
@@ -95,6 +92,32 @@ if IS_PRODUCTION and not ALLOWED_HOSTS:
     )
 
 
+# Cloudinary configuration
+CLOUDINARY_CLOUD_NAME = os.environ.get(
+    "CLOUDINARY_CLOUD_NAME", ""
+)
+CLOUDINARY_API_KEY = os.environ.get(
+    "CLOUDINARY_API_KEY", ""
+)
+CLOUDINARY_API_SECRET = os.environ.get(
+    "CLOUDINARY_API_SECRET", ""
+)
+
+CLOUDINARY_CONFIGURED = all(
+    [
+        CLOUDINARY_CLOUD_NAME,
+        CLOUDINARY_API_KEY,
+        CLOUDINARY_API_SECRET,
+    ]
+)
+
+CLOUDINARY_STORAGE = {
+    "CLOUD_NAME": CLOUDINARY_CLOUD_NAME,
+    "API_KEY": CLOUDINARY_API_KEY,
+    "API_SECRET": CLOUDINARY_API_SECRET,
+}
+
+
 # Applications
 INSTALLED_APPS = [
     "daphne",
@@ -103,7 +126,9 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "cloudinary_storage",
     "django.contrib.staticfiles",
+    "cloudinary",
     "channels",
     "accounts",
     "listings.apps.ListingsConfig",
@@ -228,7 +253,7 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files
+# Static and uploaded files
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
@@ -236,10 +261,15 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
-# WhiteNoise serves collected static files in production.
+# Cloudinary stores uploaded images when credentials are configured.
+# Otherwise, local development continues to use the filesystem.
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "BACKEND": (
+            "cloudinary_storage.storage.MediaCloudinaryStorage"
+            if CLOUDINARY_CONFIGURED
+            else "django.core.files.storage.FileSystemStorage"
+        ),
     },
     "staticfiles": {
         "BACKEND": (
