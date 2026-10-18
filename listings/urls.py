@@ -10,4 +10,3 @@ urlpatterns = [
     path('items/<int:pk>/delete/', views.delete_item, name='item_delete'),
     path('claims/<int:pk>/<str:action>/', views.update_claim, name='claim_update'),
 ]
-```
