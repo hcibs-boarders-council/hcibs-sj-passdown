@@ -432,7 +432,6 @@ def update_claim(request, pk, action):
         messages.success(request, 'Item marked as passed on.')
         return redirect(_safe_next(request, fallback))
 
-        ```python
 @login_required(login_url='login')
 @require_http_methods(['POST'])
 def delete_item(request, pk):
@@ -453,4 +452,4 @@ def delete_item(request, pk):
 
     messages.success(request, f'Your post "{title}" was deleted.')
     return redirect('my_posts')
-```
+
