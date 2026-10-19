@@ -10,7 +10,6 @@ from firebase_admin import credentials, messaging
 from accounts.models import PushNotificationToken
 from .models import Item
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -39,10 +38,7 @@ def get_firebase_app():
 
 
 def send_claim_push_notification(item_id, claimant_id):
-    """
-    Notify the listing owner when another user successfully claims an item.
-    """
-    # Temporary diagnostic log: confirms this function was called.
+    """Notify the listing owner when another user claims an item."""
     logger.info(
         "CLAIM PUSH FUNCTION CALLED: item=%s claimant=%s",
         item_id,
@@ -52,7 +48,7 @@ def send_claim_push_notification(item_id, claimant_id):
     try:
         item = Item.objects.select_related("owner").get(pk=item_id)
 
-        # Never notify the claimant about their own claim.
+        # Don't notify users when they claim their own listing.
         if item.owner_id == claimant_id:
             logger.info(
                 "Skipping claim push: claimant owns item %s.",
@@ -63,9 +59,7 @@ def send_claim_push_notification(item_id, claimant_id):
         tokens = list(
             PushNotificationToken.objects.filter(
                 user_id=item.owner_id,
-            )
-            .values_list("token", flat=True)
-            .distinct()
+            ).values_list("token", flat=True).distinct()
         )
 
         if not tokens:
@@ -78,13 +72,12 @@ def send_claim_push_notification(item_id, claimant_id):
         app = get_firebase_app()
         url = reverse("item_detail", kwargs={"pk": item.pk})
 
-        # Data-only payload: the service worker displays background
-        # notifications, preventing Firebase's automatic display from
-        # duplicating the notification.
         message = messaging.MulticastMessage(
+            notification=messaging.Notification(
+                title="Someone claimed your item!",
+                body=f"{item.title} has a new claim.",
+            ),
             data={
-                "title": "Someone claimed your item!",
-                "body": f"{item.title} has a new claim.",
                 "url": url,
                 "item_id": str(item.pk),
                 "type": "listing_claim",
@@ -106,16 +99,11 @@ def send_claim_push_notification(item_id, claimant_id):
             len(tokens),
         )
 
-        # Remove expired or invalid device tokens.
         invalid_tokens = []
 
         for token, result in zip(tokens, response.responses):
             if not result.success and result.exception:
-                error_code = getattr(
-                    result.exception,
-                    "code",
-                    "",
-                )
+                error_code = getattr(result.exception, "code", "")
 
                 logger.warning(
                     "FCM delivery failed for item %s: code=%s error=%s",
