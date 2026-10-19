@@ -41,14 +41,23 @@ def get_firebase_app():
 def send_claim_push_notification(item_id, claimant_id):
     """
     Notify the listing owner when another user successfully claims an item.
-
-    Failures are logged and do not undo the successful claim.
     """
+    # Temporary diagnostic log: confirms this function was called.
+    logger.info(
+        "CLAIM PUSH FUNCTION CALLED: item=%s claimant=%s",
+        item_id,
+        claimant_id,
+    )
+
     try:
         item = Item.objects.select_related("owner").get(pk=item_id)
 
         # Never notify the claimant about their own claim.
         if item.owner_id == claimant_id:
+            logger.info(
+                "Skipping claim push: claimant owns item %s.",
+                item_id,
+            )
             return
 
         tokens = list(
@@ -60,8 +69,8 @@ def send_claim_push_notification(item_id, claimant_id):
         )
 
         if not tokens:
-            logger.info(
-                "No push notification tokens for item owner %s.",
+            logger.warning(
+                "No push notification tokens found for item owner %s.",
                 item.owner_id,
             )
             return
@@ -69,8 +78,9 @@ def send_claim_push_notification(item_id, claimant_id):
         app = get_firebase_app()
         url = reverse("item_detail", kwargs={"pk": item.pk})
 
-        # Data-only payload: the service worker displays the
-        # notification in the background.
+        # Data-only payload: the service worker displays background
+        # notifications, preventing Firebase's automatic display from
+        # duplicating the notification.
         message = messaging.MulticastMessage(
             data={
                 "title": "Someone claimed your item!",
@@ -88,10 +98,12 @@ def send_claim_push_notification(item_id, claimant_id):
         )
 
         logger.info(
-            "Claim push for item %s: %s sent, %s failed.",
+            "Claim push result for item %s: %s sent, %s failed, "
+            "%s device token(s) checked.",
             item.pk,
             response.success_count,
             response.failure_count,
+            len(tokens),
         )
 
         # Remove expired or invalid device tokens.
@@ -103,6 +115,13 @@ def send_claim_push_notification(item_id, claimant_id):
                     result.exception,
                     "code",
                     "",
+                )
+
+                logger.warning(
+                    "FCM delivery failed for item %s: code=%s error=%s",
+                    item.pk,
+                    error_code,
+                    result.exception,
                 )
 
                 if error_code in {
