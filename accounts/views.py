@@ -1,4 +1,6 @@
+
 import json
+import logging
 import secrets
 from datetime import timedelta
 
@@ -46,6 +48,8 @@ from .models import (
 from chat.models import Conversation
 from listings.models import Claim, Item, ItemPhoto
 
+
+logger = logging.getLogger(__name__)
 
 VERIFICATION_EXPIRY_MINUTES = 10
 MAX_VERIFICATION_ATTEMPTS = 5
@@ -253,6 +257,9 @@ def register(request):
                 try:
                     _issue_verification_code(user)
                 except Exception:
+                    logger.exception(
+                        'Failed to send legacy verification email.'
+                    )
                     messages.error(
                         request,
                         'Your account was created, but the verification email '
@@ -336,6 +343,9 @@ def firebase_complete_registration(request):
             app=app,
         )
     except Exception:
+        logger.exception(
+            'Firebase registration authentication failed.'
+        )
         return JsonResponse(
             {'error': 'Firebase authentication failed. Please try again.'},
             status=401,
@@ -402,6 +412,9 @@ def firebase_complete_registration(request):
                 )
 
     except IntegrityError:
+        logger.exception(
+            'Database error while completing Firebase registration.'
+        )
         return JsonResponse(
             {'error': 'The account could not be created. Please try again.'},
             status=409,
@@ -453,12 +466,18 @@ def firebase_login(request):
         )
 
     try:
+        app = get_firebase_app()
         decoded_token = firebase_auth.verify_id_token(
             id_token,
-            app=get_firebase_app(),
+            app=app,
             check_revoked=True,
         )
-    except Exception:
+    except Exception as exc:
+        logger.exception(
+            'Firebase login token verification failed (%s): %s',
+            type(exc).__name__,
+            exc,
+        )
         return JsonResponse(
             {
                 'ok': False,
