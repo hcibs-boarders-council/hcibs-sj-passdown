@@ -3,9 +3,9 @@ import logging
 from functools import lru_cache
 
 import firebase_admin
-from firebase_admin import credentials, messaging
 from django.conf import settings
 from django.urls import reverse
+from firebase_admin import credentials, messaging
 
 from accounts.models import PushNotificationToken
 from .models import Item
@@ -54,7 +54,9 @@ def send_claim_push_notification(item_id, claimant_id):
         tokens = list(
             PushNotificationToken.objects.filter(
                 user_id=item.owner_id,
-            ).values_list("token", flat=True)
+            )
+            .values_list("token", flat=True)
+            .distinct()
         )
 
         if not tokens:
@@ -67,12 +69,12 @@ def send_claim_push_notification(item_id, claimant_id):
         app = get_firebase_app()
         url = reverse("item_detail", kwargs={"pk": item.pk})
 
+        # Data-only payload: the service worker displays the
+        # notification in the background.
         message = messaging.MulticastMessage(
-            notification=messaging.Notification(
-                title="Someone claimed your item!",
-                body=f'{item.title} has a new claim.',
-            ),
             data={
+                "title": "Someone claimed your item!",
+                "body": f"{item.title} has a new claim.",
                 "url": url,
                 "item_id": str(item.pk),
                 "type": "listing_claim",
@@ -113,6 +115,11 @@ def send_claim_push_notification(item_id, claimant_id):
             PushNotificationToken.objects.filter(
                 token__in=invalid_tokens,
             ).delete()
+
+            logger.info(
+                "Removed %s invalid notification token(s).",
+                len(invalid_tokens),
+            )
 
     except Exception:
         logger.exception(

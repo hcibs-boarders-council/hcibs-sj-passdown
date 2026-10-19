@@ -19,13 +19,22 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-    const notification = payload.notification || {};
+    // The Django server sends a data-only message.
+    const data = payload.data || {};
 
-    const title = notification.title || "SJ Passdown";
+    const title = data.title || "SJ Passdown";
+
     const options = {
-        body: notification.body || "You have a new notification.",
-        icon: "/static/images/icon-128.png",
-        data: payload.data || {},
+        body: data.body || "You have a new notification.",
+        icon: "/static/img/logo-128.png",
+        data: {
+            url: data.url || "/",
+            item_id: data.item_id || "",
+            type: data.type || "",
+        },
+        tag: data.item_id
+            ? `listing-claim-${data.item_id}`
+            : "sj-passdown-notification",
     };
 
     self.registration.showNotification(title, options);
@@ -34,9 +43,17 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener("notificationclick", (event) => {
     event.notification.close();
 
+    const targetUrl = new URL(
+        event.notification.data?.url || "/",
+        self.location.origin
+    );
+
+    // Only open pages on the same website.
+    if (targetUrl.origin !== self.location.origin) {
+        return;
+    }
+
     event.waitUntil(
-        clients.openWindow(
-            event.notification.data.url || "/"
-        )
+        clients.openWindow(targetUrl.href)
     );
 });
