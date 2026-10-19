@@ -24,7 +24,7 @@ messaging.onBackgroundMessage((payload) => {
     const title = notification.title || "SJ Passdown";
     const options = {
         body: notification.body || "You have a new notification.",
-        icon: "/static/images/icon-192.png",
+        icon: "/static/images/icon-128.png",
         data: payload.data || {},
     };
 
