@@ -52,20 +52,50 @@ class ItemForm(forms.ModelForm):
                 'data-max-bytes': MAX_PHOTO_SIZE,
             },
         ),
-        help_text='Add 1 to 5 photos: JPEG, PNG, or WebP, up to 5 MB each. The first photo is the cover.',
+        help_text=(
+            'Add 1 to 5 photos: JPEG, PNG, or WebP, '
+            'up to 5 MB each. The first photo is the cover.'
+        ),
+    )
+
+    leaving_date = forms.DateField(
+        required=False,
+        input_formats=['%d/%m/%Y'],
+        label='Leaving date',
+        help_text='Enter your leaving date in DD/MM/YYYY format.',
+        widget=forms.DateInput(
+            format='%d/%m/%Y',
+            attrs={
+                'placeholder': 'DD/MM/YYYY',
+                'autocomplete': 'off',
+                'inputmode': 'numeric',
+            },
+        ),
     )
 
     class Meta:
         model = Item
-        fields = ['title', 'description', 'category']
+        fields = [
+            'title',
+            'description',
+            'category',
+            'leaving_date',
+        ]
         labels = {
             'title': 'Title',
             'description': 'Description',
             'category': 'Category',
+            'leaving_date': 'Leaving date',
         }
         help_texts = {
-            'title': 'Be specific, e.g. “H2 Chemistry ten-year series (2019–2023)”.',
-            'description': 'Condition, size or edition, and anything a junior should know before claiming.',
+            'title': (
+                'Be specific, e.g. “H2 Chemistry ten-year series '
+                '(2019–2023)”.'
+            ),
+            'description': (
+                'Condition, size or edition, and anything a junior '
+                'should know before claiming.'
+            ),
         }
         error_messages = {
             'title': {'required': 'Enter a title.'},
@@ -73,22 +103,39 @@ class ItemForm(forms.ModelForm):
             'category': {'required': 'Choose a category.'},
         }
         widgets = {
-            'title': forms.TextInput(attrs={
-                'placeholder': 'What are you passing down?',
-                'autocomplete': 'off',
-            }),
-            'description': forms.Textarea(attrs={
-                'rows': 5,
-                'placeholder': 'Lightly used, a few pencil notes inside. Collect from Block B.',
-            }),
+            'title': forms.TextInput(
+                attrs={
+                    'placeholder': 'What are you passing down?',
+                    'autocomplete': 'off',
+                },
+            ),
+            'description': forms.Textarea(
+                attrs={
+                    'rows': 5,
+                    'placeholder': (
+                        'Lightly used, a few pencil notes inside. '
+                        'Collect from Block B.'
+                    ),
+                },
+            ),
         }
 
-    field_order = ['title', 'category', 'description', 'photos']
+    field_order = [
+        'title',
+        'category',
+        'description',
+        'leaving_date',
+        'photos',
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         # A friendlier empty choice than Django's "---------".
-        self.fields['category'].choices = [('', 'Choose a category'), *Item.Category.choices]
+        self.fields['category'].choices = [
+            ('', 'Choose a category'),
+            *Item.Category.choices,
+        ]
 
     def clean_photos(self):
         photos = self.cleaned_data['photos']
@@ -101,27 +148,39 @@ class ItemForm(forms.ModelForm):
             total_size += photo.size
 
             if photo.size > MAX_PHOTO_SIZE:
-                raise ValidationError('Each photo must be 5 MB or smaller.')
+                raise ValidationError(
+                    'Each photo must be 5 MB or smaller.'
+                )
 
             image = getattr(photo, 'image', None)
             image_format = getattr(image, 'format', None)
-            # Some phone cameras save JPEGs with extra pictures attached, which
-            # Pillow reports as "MPO"; they are .jpg files and stored as JPEG.
+
+            # Some phone cameras save JPEGs with extra pictures attached,
+            # which Pillow reports as "MPO"; these are stored as JPEG.
             if stored_format(image_format) not in SUPPORTED_IMAGE_FORMATS:
-                raise ValidationError('Upload only JPEG, PNG, or WebP photos.')
+                raise ValidationError(
+                    'Upload only JPEG, PNG, or WebP photos.'
+                )
 
             if image.width * image.height > MAX_IMAGE_PIXELS:
-                raise ValidationError('Each photo must be no larger than 25 megapixels.')
+                raise ValidationError(
+                    'Each photo must be no larger than 25 megapixels.'
+                )
 
         if total_size > MAX_PHOTO_COUNT * MAX_PHOTO_SIZE:
-            raise ValidationError('Your combined photo upload must be 25 MB or smaller.')
+            raise ValidationError(
+                'Your combined photo upload must be 25 MB or smaller.'
+            )
 
         # Strip location/metadata and cap the size (see listings/images.py).
         # Done here so an unreadable photo becomes a form error, not a crash.
         try:
             return [prepare_photo(photo) for photo in photos]
         except PhotoProcessingError:
-            raise ValidationError('One of your photos could not be read. Try saving it again or choose a different photo.')
+            raise ValidationError(
+                'One of your photos could not be read. '
+                'Try saving it again or choose a different photo.'
+            )
 
 
 class ClaimForm(forms.ModelForm):
@@ -129,13 +188,17 @@ class ClaimForm(forms.ModelForm):
         model = Claim
         fields = ['note']
         labels = {'note': 'Note for the owner'}
-        help_texts = {'note': 'For example, when you could collect it.'}
+        help_texts = {
+            'note': 'For example, when you could collect it.',
+        }
         widgets = {
             'note': forms.Textarea(
                 attrs={
                     'rows': 3,
                     'maxlength': 500,
-                    'placeholder': 'Add collection timing or hostel notes if helpful.',
+                    'placeholder': (
+                        'Add collection timing or hostel notes if helpful.'
+                    ),
                 },
             ),
         }

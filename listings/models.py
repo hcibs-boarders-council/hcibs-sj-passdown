@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from uuid import uuid4
 
@@ -39,6 +38,13 @@ class Item(models.Model):
     title = models.CharField(max_length=120)
     description = models.TextField(max_length=1000)
     category = models.CharField(max_length=30, choices=Category.choices)
+
+    # The date by which the item should be collected.
+    leaving_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Leaving date in DD/MM/YYYY format.',
+    )
 
     # Listing status: controls the item's availability and handover.
     status = models.CharField(
@@ -196,6 +202,7 @@ class ItemPhoto(models.Model):
     )
     image = models.ImageField(upload_to=item_photo_upload_to)
     position = models.PositiveSmallIntegerField()
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

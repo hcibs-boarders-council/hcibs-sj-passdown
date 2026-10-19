@@ -1,10 +1,13 @@
+
 {% comment %}
 Item card for the Home grid. Expects `item` (listings.Item with photos prefetched).
 
 The title link is stretched over the whole card (see .item-card__link::after),
 so the entire card is one click target, while screen readers get a short link
 name (the title) and can still read the category, description and owner.
-{% endcomment %}<article class="item-card">
+{% endcomment %}
+
+<article class="item-card">
     <div class="item-card__tile tile--{{ item.category }}">
         <span class="chip item-card__badge">Free</span>
         {% with primary_photo=item.photos.all|first %}
@@ -20,10 +23,22 @@ name (the title) and can still read the category, description and owner.
 
     <div class="item-card__body">
         <div class="item-card__head">
-            <h3 class="item-card__title"><a class="item-card__link" href="{% url 'item_detail' item.pk %}">{{ item.title }}</a></h3>
+            <h3 class="item-card__title">
+                <a class="item-card__link" href="{% url 'item_detail' item.pk %}">{{ item.title }}</a>
+            </h3>
             <span class="item-card__cat">{{ item.get_category_display }}</span>
         </div>
+
         <p class="item-card__desc">{{ item.description }}</p>
+
+        {% if item.leaving_date %}
+        <p class="item-card__leaving-date">
+            <span aria-hidden="true">📅</span>
+            Collect by:
+            <time datetime="{{ item.leaving_date|date:'Y-m-d' }}">{{ item.leaving_date|date:"d/m/Y" }}</time>
+        </p>
+        {% endif %}
+
         <div class="item-card__foot">
             <span class="item-card__owner">
                 <span class="avatar avatar--xs" aria-hidden="true">{{ item.owner.username|first|upper }}</span>
