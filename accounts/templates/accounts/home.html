@@ -14,7 +14,7 @@
     <div class="hero__copy">
         <p class="eyebrow">{% include 'partials/icon.html' with name='sparkle' %} HCIBS SJ Passdown</p>
         <h1 class="display hero__title" id="hero-title">Pass it down, pass it&nbsp;on</h1>
-        <p class="hero__lead">Browse and claim items generously passed down by your seniors — textbooks, stationery, uniforms and everyday essentials. Always free, always from students like you.</p>
+        <p class="hero__lead">Browse and claim items generously passed down by seniors — textbooks, stationery, uniforms and everyday essentials.</p>
 
         <form class="hero__search" method="get" action="{% url 'home' %}" role="search" aria-label="Search and filter available items" data-home-search>
             <div class="search-pill">
@@ -69,7 +69,7 @@
 <section class="listing" aria-labelledby="listing-title" id="listings">
     <div class="listing__head">
         <div class="listing__heading">
-            <h2 class="section-title" id="listing-title">{% if is_filtered %}Search results{% else %}Fresh passdowns{% endif %}</h2>
+            <h2 class="section-title" id="listing-title">{% if is_filtered %}Search results{% else %}Passdowns{% endif %}</h2>
             <p class="listing__summary">
                 {% if is_filtered %}
                 {{ result_count }} item{{ result_count|pluralize }}{% if query %} matching “{{ query }}”{% endif %}{% if selected_category_labels %} in {{ selected_category_labels|join:", " }}{% endif %}
