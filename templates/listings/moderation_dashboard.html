@@ -1,0 +1,479 @@
+
+{% extends 'base.html' %}
+
+{% block title %}Moderate Listings — SJ Passdown{% endblock %}
+
+{% block body_class %}page-auth page-moderation{% endblock %}
+
+{% block extra_css %}
+<style>
+/* =========================================================
+   Moderation dashboard
+   ========================================================= */
+
+.page-moderation .moderation-list {
+    display: grid;
+    gap: 24px;
+    margin-top: 28px;
+}
+
+.page-moderation .moderation-card {
+    min-width: 0;
+    padding: clamp(16px, 2.5vw, 26px);
+    border: 1px solid var(--red-line);
+    border-radius: var(--radius);
+    background: var(--paper);
+    box-shadow: 0 8px 24px -20px rgba(100, 35, 25, 0.35);
+}
+
+.page-moderation .moderation-card__content {
+    display: grid;
+    grid-template-columns: minmax(190px, 280px) minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(20px, 3vw, 32px);
+}
+
+/* Photo carousel */
+
+.page-moderation .moderation-card__photos {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-width: 0;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--sand);
+}
+
+.page-moderation .moderation-card__photos img {
+    display: none;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.page-moderation .moderation-card__photos img.is-active {
+    display: block;
+}
+
+.page-moderation .moderation-card__photos .no-photo {
+    padding: 20px;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+}
+
+.page-moderation .moderation-carousel__controls {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.page-moderation .moderation-carousel__arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    background: var(--paper);
+    color: var(--red-dark);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.page-moderation .moderation-carousel__arrow:hover {
+    background: var(--pink);
+    transform: scale(1.06);
+}
+
+.page-moderation .moderation-carousel__arrow .icon {
+    width: 18px;
+    height: 18px;
+}
+
+.page-moderation .moderation-carousel__count {
+    padding: 5px 10px;
+    border-radius: 20px;
+    background: var(--paper);
+    color: var(--red-dark);
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Listing details */
+
+.page-moderation .moderation-card__details {
+    min-width: 0;
+}
+
+.page-moderation .moderation-card__details h2 {
+    margin: 0 0 12px;
+    color: var(--red-dark);
+    font-family: var(--font-display);
+    font-size: clamp(22px, 2.5vw, 30px);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.page-moderation .moderation-card__description {
+    margin-bottom: 20px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+}
+
+.page-moderation .moderation-card__meta {
+    display: grid;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--paper-2);
+}
+
+.page-moderation .moderation-card__meta p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.page-moderation .moderation-card__meta strong {
+    color: var(--ink);
+}
+
+.page-moderation .moderation-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    background: var(--yellow);
+    color: var(--red-ink);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Approve and reject actions */
+
+.page-moderation .moderation-card__actions {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.3fr);
+    align-items: start;
+    gap: 20px;
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid var(--red-line);
+}
+
+.page-moderation .moderation-card__actions form {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    min-width: 0;
+    margin: 0;
+}
+
+.page-moderation .moderation-card__actions label {
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.page-moderation .moderation-card__actions textarea {
+    width: 100%;
+    min-height: 84px;
+    padding: 12px 14px;
+    border: 1px solid var(--field-border);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.page-moderation .moderation-card__actions textarea:focus {
+    outline: none;
+    border-color: var(--red-dark);
+    box-shadow: var(--focus);
+}
+
+.page-moderation .moderation-card__actions .btn {
+    justify-self: start;
+    min-height: 42px;
+}
+
+.page-moderation .moderation-card__actions .btn--primary {
+    background: #26734d;
+    color: #fff;
+    border-color: #26734d;
+}
+
+.page-moderation .moderation-card__actions .btn--primary:hover {
+    background: #1d5d3d;
+}
+
+.page-moderation .moderation-card__actions .btn--danger {
+    background: var(--red);
+    color: #fff;
+}
+
+.page-moderation .moderation-card__actions .btn--danger:hover {
+    background: var(--red-dark);
+}
+
+/* Empty state */
+
+.page-moderation .moderation-empty {
+    margin-top: 28px;
+    padding: clamp(28px, 5vw, 52px) 20px;
+    border: 1px dashed var(--red-line);
+    border-radius: var(--radius);
+    background: var(--paper);
+    text-align: center;
+}
+
+.page-moderation .moderation-empty h2 {
+    margin-bottom: 8px;
+    color: var(--red-dark);
+    font-family: var(--font-display);
+}
+
+.page-moderation .moderation-empty p {
+    color: var(--ink-soft);
+}
+
+/* Responsive layout */
+
+@media (max-width: 680px) {
+    .page-moderation .moderation-card__content {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+    }
+
+    .page-moderation .moderation-card__photos {
+        width: 100%;
+        max-width: 360px;
+        aspect-ratio: 4 / 3;
+        justify-self: center;
+    }
+
+    .page-moderation .moderation-card__actions {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+    }
+
+    .page-moderation .moderation-card__actions .btn {
+        width: 100%;
+        justify-self: stretch;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section class="section">
+
+        <header class="section-header">
+            <p class="eyebrow">Listing moderation</p>
+            <h1>Review listings</h1>
+            <p>Review new posts before they appear publicly on SJ Passdown.</p>
+        </header>
+
+        {% if items %}
+            <div class="moderation-list">
+                {% for item in items %}
+                    <article class="moderation-card">
+
+                        <div class="moderation-card__content">
+
+                            <!-- Photo carousel -->
+                            <div
+                                class="moderation-card__photos"
+                                data-carousel
+                                aria-label="Photos of {{ item.title }}"
+                            >
+                                {% for photo in item.photos.all %}
+                                    <img
+                                        src="{{ photo.image.url }}"
+                                        alt="Photo {{ forloop.counter }} of {{ item.title }}"
+                                        class="{% if forloop.first %}is-active{% endif %}"
+                                        {% if not forloop.first %}hidden{% endif %}
+                                        loading="lazy"
+                                    >
+                                {% empty %}
+                                    <p class="no-photo">No photos uploaded.</p>
+                                {% endfor %}
+
+                                {% if item.photos.all|length > 1 %}
+                                    <div class="moderation-carousel__controls">
+                                        <button
+                                            type="button"
+                                            class="moderation-carousel__arrow"
+                                            data-carousel-prev
+                                            aria-label="Previous photo"
+                                        >
+                                            {% include 'partials/icon.html' with name='chevron-left' %}
+                                        </button>
+
+                                        <span
+                                            class="moderation-carousel__count"
+                                            data-carousel-count
+                                            aria-live="polite"
+                                        >1 / {{ item.photos.all|length }}</span>
+
+                                        <button
+                                            type="button"
+                                            class="moderation-carousel__arrow"
+                                            data-carousel-next
+                                            aria-label="Next photo"
+                                        >
+                                            {% include 'partials/icon.html' with name='chevron-right' %}
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Listing information -->
+                            <div class="moderation-card__details">
+                                <h2>{{ item.title }}</h2>
+
+                                <p class="moderation-card__description">{{ item.description }}</p>
+
+                                <div class="moderation-card__meta">
+                                    <p>
+                                        <strong>Category:</strong>
+                                        {{ item.get_category_display }}
+                                    </p>
+
+                                    <p>
+                                        <strong>Posted by:</strong>
+                                        {{ item.owner.username }}
+                                    </p>
+
+                                    <p>
+                                        <strong>Submitted:</strong>
+                                        {{ item.created_at|date:"d M Y, H:i" }}
+                                    </p>
+
+                                    <p>
+                                        <strong>Status:</strong>
+                                        <span class="moderation-status">
+                                            Pending review
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Moderation actions -->
+                        <div class="moderation-card__actions">
+
+                            <form
+                                method="post"
+                                action="{% url 'moderation_approve' item.pk %}"
+                            >
+                                {% csrf_token %}
+
+                                <button type="submit" class="btn btn--primary">
+                                    {% include 'partials/icon.html' with name='check' %}
+                                    Approve listing
+                                </button>
+                            </form>
+
+                            <form
+                                method="post"
+                                action="{% url 'moderation_reject' item.pk %}"
+                            >
+                                {% csrf_token %}
+
+                                <label for="reason-{{ item.pk }}">
+                                    Reason for rejection (required)
+                                </label>
+
+                                <textarea
+                                    id="reason-{{ item.pk }}"
+                                    name="reason"
+                                    maxlength="500"
+                                    placeholder="Explain why this listing is being rejected..."
+                                    required
+                                ></textarea>
+
+                                <button type="submit" class="btn btn--danger">
+                                    Reject listing
+                                </button>
+                            </form>
+
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+
+        {% else %}
+            <div class="moderation-empty">
+                <h2>You're all caught up!</h2>
+                <p>There are no listings waiting for review.</p>
+            </div>
+        {% endif %}
+
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('[data-carousel]').forEach((carousel) => {
+    const images = Array.from(carousel.querySelectorAll('img'));
+    const previousButton = carousel.querySelector('[data-carousel-prev]');
+    const nextButton = carousel.querySelector('[data-carousel-next]');
+    const counter = carousel.querySelector('[data-carousel-count]');
+
+    if (images.length <= 1) {
+        return;
+    }
+
+    let currentIndex = 0;
+
+    function showImage(index) {
+        currentIndex = (index + images.length) % images.length;
+
+        images.forEach((image, imageIndex) => {
+            const isActive = imageIndex === currentIndex;
+
+            image.classList.toggle('is-active', isActive);
+            image.hidden = !isActive;
+        });
+
+        if (counter) {
+            counter.textContent = `${currentIndex + 1} / ${images.length}`;
+        }
+    }
+
+    previousButton?.addEventListener('click', () => {
+        showImage(currentIndex - 1);
+    });
+
+    nextButton?.addEventListener('click', () => {
+        showImage(currentIndex + 1);
+    });
+});
+</script>
+{% endblock %}

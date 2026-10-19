@@ -1,3 +1,4 @@
+
 /* ==========================================================================
    SJ Passdown — shared components
    Navbar, profile menu, footer, avatar, item card, info pills.
@@ -53,7 +54,6 @@
     color: var(--ink-soft);
 }
 
-/* Title block on the left, an action (button, toggle) on the right. */
 .page-header--split {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
@@ -220,11 +220,7 @@
     justify-self: end;
 }
 
-
 /* Navbar search ----------------------------------------------------------- */
-/* A <details> disclosure: the icon is the only visible part until opened.
-   The panel is positioned against .site-nav (not the button), so it drops
-   below the navbar and never covers the Post button or profile menu. */
 
 .nav-search > summary {
     list-style: none;
@@ -304,10 +300,10 @@
     flex-basis: 100%;
     padding: 0 6px 2px;
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: 12px;
 }
 
-/* Toasts (live message alerts) ------------------------------------------- */
+/* Toasts ------------------------------------------------------------------ */
 
 .toast-region {
     position: fixed;
@@ -382,7 +378,8 @@
     background: var(--pink-soft);
 }
 
-/* Unread dot on the mobile menu button (the Chat link is inside the menu). */
+/* Mobile menu unread dot -------------------------------------------------- */
+
 .site-nav__toggle-dot {
     position: absolute;
     top: 3px;
@@ -592,7 +589,7 @@
     font-size: 12px;
 }
 
-/* Info pills (accordion pills from the reference) ------------------------- */
+/* Info pills -------------------------------------------------------------- */
 
 .info-pills {
     display: grid;
@@ -701,7 +698,6 @@
     transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
 }
 
-/* The title link covers the whole card, so the card is one click target. */
 .item-card__link {
     color: inherit;
     text-decoration: none;
@@ -717,11 +713,6 @@
 
 .item-card__link:focus-visible {
     outline: none;
-}
-
-.item-card__link:focus-visible::after {
-    outline: 3px solid var(--red-dark);
-    outline-offset: -3px;
 }
 
 .item-card:hover .item-card__link {
@@ -858,7 +849,8 @@
     font-size: 12px;
 }
 
-/* Category colour tiles (matches the reference's red / pink / blue / yellow) */
+/* Category colour tiles --------------------------------------------------- */
+
 .tile--books { background: var(--blue); }
 .tile--stationery { background: var(--yellow); }
 .tile--daily_essentials { background: var(--pink); }
@@ -866,6 +858,21 @@
 .tile--other { background: var(--sand); }
 
 .tile--clothes .item-card__badge { background: var(--pink); }
+
+/* Delete post button ------------------------------------------------------ */
+
+.post-card__delete button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.post-card__delete button .icon {
+    width: 16px;
+    height: 16px;
+    flex: none;
+}
 
 /* Responsive -------------------------------------------------------------- */
 
@@ -977,7 +984,6 @@
     }
 }
 
-/* Small phones: keep every control reachable without horizontal overflow. */
 @media (max-width: 420px) {
     .site-nav {
         gap: 8px;
@@ -1007,4 +1013,3 @@
         font-size: 12.5px;
     }
 }
-

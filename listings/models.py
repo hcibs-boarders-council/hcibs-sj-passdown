@@ -1,3 +1,4 @@
+
 from pathlib import Path
 from uuid import uuid4
 
@@ -25,6 +26,11 @@ class Item(models.Model):
         RESERVED = 'reserved', 'Reserved'
         PASSED_ON = 'passed_on', 'Passed on'
 
+    class ModerationStatus(models.TextChoices):
+        PENDING = 'pending', 'Pending review'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -33,11 +39,37 @@ class Item(models.Model):
     title = models.CharField(max_length=120)
     description = models.TextField(max_length=1000)
     category = models.CharField(max_length=30, choices=Category.choices)
+
+    # Listing status: controls the item's availability and handover.
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
         default=Status.AVAILABLE,
     )
+
+    # Moderation status: controls whether the item may be published.
+    moderation_status = models.CharField(
+        max_length=20,
+        choices=ModerationStatus.choices,
+        default=ModerationStatus.PENDING,
+        db_index=True,
+    )
+    moderation_reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    moderation_reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_items',
+    )
+    moderation_rejection_reason = models.TextField(
+        max_length=500,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -50,6 +82,9 @@ class Item(models.Model):
                 name='item_status_created_idx',
             ),
         ]
+
+    def __str__(self):
+        return self.title
 
 
 class Claim(models.Model):
@@ -83,8 +118,14 @@ class Claim(models.Model):
     class Meta:
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['claimant', '-created_at'], name='claim_claimant_created_idx'),
-            models.Index(fields=['item', 'status'], name='claim_item_status_idx'),
+            models.Index(
+                fields=['claimant', '-created_at'],
+                name='claim_claimant_created_idx',
+            ),
+            models.Index(
+                fields=['item', 'status'],
+                name='claim_item_status_idx',
+            ),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -98,31 +139,53 @@ class Claim(models.Model):
 
     def clean(self):
         super().clean()
-        if self.item_id and self.claimant_id and self.item.owner_id == self.claimant_id:
+        if (
+            self.item_id
+            and self.claimant_id
+            and self.item.owner_id == self.claimant_id
+        ):
             raise ValidationError('You cannot claim your own item.')
 
     @property
     def is_active(self):
-        return self.status in {self.Status.PENDING, self.Status.APPROVED}
-
-    def can_cancel(self, user):
-        return self.claimant_id == user.id and self.status in {
+        return self.status in {
             self.Status.PENDING,
             self.Status.APPROVED,
         }
 
+    def can_cancel(self, user):
+        return (
+            self.claimant_id == user.id
+            and self.status in {
+                self.Status.PENDING,
+                self.Status.APPROVED,
+            }
+        )
+
     def can_approve(self, user):
-        return self.item.owner_id == user.id and self.status == self.Status.PENDING
+        return (
+            self.item.owner_id == user.id
+            and self.status == self.Status.PENDING
+        )
 
     def can_decline(self, user):
-        return self.item.owner_id == user.id and self.status == self.Status.PENDING
+        return (
+            self.item.owner_id == user.id
+            and self.status == self.Status.PENDING
+        )
 
     def can_mark_completed(self, user):
-        return self.item.owner_id == user.id and self.status == self.Status.APPROVED
+        return (
+            self.item.owner_id == user.id
+            and self.status == self.Status.APPROVED
+        )
 
     def can_release(self, user):
-        """The owner can undo an approval (e.g. the claimant never collected)."""
-        return self.item.owner_id == user.id and self.status == self.Status.APPROVED
+        """The owner can undo an approval if the claimant never collected."""
+        return (
+            self.item.owner_id == user.id
+            and self.status == self.Status.APPROVED
+        )
 
 
 class ItemPhoto(models.Model):

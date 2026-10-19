@@ -1,4 +1,4 @@
-```django
+
 {% extends 'base.html' %}
 {% load static %}
 
@@ -16,38 +16,109 @@
         <div>
             <p class="eyebrow">Your contributions</p>
             <h1 class="display" id="posts-title">My Posts</h1>
-            <p class="page-header__lead">Review claims, reserve items for juniors and mark them as passed on.</p>
+            <p class="page-header__lead">
+                Review claims, reserve items for juniors and mark them as passed on.
+            </p>
         </div>
-        <a class="btn btn--primary" href="{% url 'item_create' %}">{% include 'partials/icon.html' with name='plus' %}Post an item</a>
+
+        <a class="btn btn--primary" href="{% url 'item_create' %}">
+            {% include 'partials/icon.html' with name='plus' %}
+            Post an item
+        </a>
     </header>
 
     {% if page_obj.object_list %}
     <div class="account-list">
         {% for item in page_obj %}
-        <article class="card post-card" id="item-{{ item.pk }}" aria-labelledby="post-{{ item.pk }}-title">
+        <article class="card post-card"
+                 id="item-{{ item.pk }}"
+                 aria-labelledby="post-{{ item.pk }}-title">
+
             <div class="post-card__summary">
                 {% with photo=item.photos.all.0 %}
-                <a class="post-card__media tile--{{ item.category }}" href="{% url 'item_detail' item.pk %}" tabindex="-1" aria-hidden="true">
+                <a class="post-card__media tile--{{ item.category }}"
+                   href="{% url 'item_detail' item.pk %}"
+                   tabindex="-1"
+                   aria-hidden="true">
                     {% if photo %}
-                    <img src="{{ photo.image.url }}" alt="" loading="lazy" decoding="async">
+                    <img src="{{ photo.image.url }}"
+                         alt=""
+                         loading="lazy"
+                         decoding="async">
                     {% else %}
-                    <span class="post-card__art">{% include 'partials/category_art.html' with category=item.category %}</span>
+                    <span class="post-card__art">
+                        {% include 'partials/category_art.html' with category=item.category %}
+                    </span>
                     {% endif %}
                 </a>
                 {% endwith %}
 
                 <div class="post-card__body">
-                    <p class="account-card__eyebrow">{{ item.get_category_display }} · Posted {{ item.created_at|date:"j M Y" }}</p>
+                    <p class="account-card__eyebrow">
+                        {{ item.get_category_display }} · Posted {{ item.created_at|date:"j M Y" }}
+                    </p>
+
                     <h2 class="account-card__title" id="post-{{ item.pk }}-title">
                         <a href="{% url 'item_detail' item.pk %}">{{ item.title }}</a>
                     </h2>
+
                     <p class="post-card__status">
-                        <span class="status-chip status-chip--{{ item.status }}">{{ item.get_status_display }}</span>
-                        <span class="muted">{{ item.claim_total }} claim{{ item.claim_total|pluralize }}</span>
+                        <span class="status-chip status-chip--{{ item.status }}">
+                            {{ item.get_status_display }}
+                        </span>
+
+                        {% if item.moderation_status == 'pending' %}
+                        <span class="status-chip status-chip--pending">
+                            Pending review
+                        </span>
+                        {% elif item.moderation_status == 'approved' %}
+                        <span class="status-chip status-chip--approved">
+                            Approved
+                        </span>
+                        {% elif item.moderation_status == 'rejected' %}
+                        <span class="status-chip status-chip--rejected">
+                            Rejected
+                        </span>
+                        {% endif %}
+
+                        <span class="muted">
+                            {{ item.claim_total }} claim{{ item.claim_total|pluralize }}
+                        </span>
+
                         {% if item.pending_claim_total %}
-                        <span class="badge-count" title="Waiting for your decision">{{ item.pending_claim_total }} new</span>
+                        <span class="badge-count" title="Waiting for your decision">
+                            {{ item.pending_claim_total }} new
+                        </span>
                         {% endif %}
                     </p>
+
+                    {% if item.moderation_status == 'pending' %}
+                    <p class="muted">
+                        Your post is awaiting moderator review. It will appear publicly after approval.
+                    </p>
+
+                    {% elif item.moderation_status == 'rejected' %}
+                    <div class="post-rejection-notice">
+                        <p class="post-rejection-notice__heading">
+                            <strong>This post was rejected</strong>
+                        </p>
+
+                        <p class="post-rejection-notice__description">
+                            This listing is hidden from other users.
+                        </p>
+
+                        {% if item.moderation_rejection_reason %}
+                        <div class="post-rejection-notice__reason">
+                            <strong>Reason for rejection</strong>
+                            <p>{{ item.moderation_rejection_reason }}</p>
+                        </div>
+                        {% else %}
+                        <p class="post-rejection-notice__fallback">
+                            No rejection reason was provided.
+                        </p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -58,7 +129,7 @@
                       data-confirm="Are you sure you want to permanently delete '{{ item.title }}'? This cannot be undone.">
                     {% csrf_token %}
                     <button class="btn btn--ghost btn--sm" type="submit">
-                        {% include 'partials/icon.html' with name='trash-2' %}
+                        {% include 'partials/icon.html' with name='trash' %}
                         Delete post
                     </button>
                 </form>
@@ -68,18 +139,29 @@
             <details class="claims"{% if item.pending_claim_total or item.status == 'reserved' %} open{% endif %}>
                 <summary class="claims__summary">
                     Claims ({{ item.claim_total }}){% if item.pending_claim_total %} · {{ item.pending_claim_total }} waiting for you{% endif %}
-                    <span class="claims__caret" aria-hidden="true">{% include 'partials/icon.html' with name='chevron-down' %}</span>
+                    <span class="claims__caret" aria-hidden="true">
+                        {% include 'partials/icon.html' with name='chevron-down' %}
+                    </span>
                 </summary>
+
                 <ul class="claims__list">
                     {% for claim in item.claims.all %}
                     <li class="claim-row">
                         <div class="claim-row__head">
-                            <span class="avatar avatar--sm" aria-hidden="true">{{ claim.claimant.username|first|upper }}</span>
+                            <span class="avatar avatar--sm" aria-hidden="true">
+                                {{ claim.claimant.username|first|upper }}
+                            </span>
+
                             <div class="claim-row__who">
                                 <strong>{{ claim.claimant.username }}</strong>
-                                <span class="muted">{{ claim.created_at|date:"j M, g:i a" }}</span>
+                                <span class="muted">
+                                    {{ claim.created_at|date:"j M, g:i a" }}
+                                </span>
                             </div>
-                            <span class="status-chip status-chip--{{ claim.status }}">{{ claim.get_status_display }}</span>
+
+                            <span class="status-chip status-chip--{{ claim.status }}">
+                                {{ claim.get_status_display }}
+                            </span>
                         </div>
 
                         {% if claim.note %}
@@ -87,30 +169,60 @@
                         {% endif %}
 
                         <div class="claim-row__actions">
-                            {% if claim.status == 'pending' and item.status == 'available' %}
-                            <form method="post" action="{% url 'claim_update' claim.pk 'approve' %}" data-submit-once data-confirm="Reserve '{{ item.title }}' for {{ claim.claimant.username }}? Any other pending claims will be declined.">
+                            {% if claim.status == 'pending' and item.status == 'available' and item.moderation_status == 'approved' %}
+                            <form method="post"
+                                  action="{% url 'claim_update' claim.pk 'approve' %}"
+                                  data-submit-once
+                                  data-confirm="Reserve '{{ item.title }}' for {{ claim.claimant.username }}? Any other pending claims will be declined.">
                                 {% csrf_token %}
-                                <button class="btn btn--primary btn--sm" type="submit">{% include 'partials/icon.html' with name='check' %}Approve</button>
+                                <button class="btn btn--primary btn--sm" type="submit">
+                                    {% include 'partials/icon.html' with name='check' %}
+                                    Approve
+                                </button>
                             </form>
-                            <form method="post" action="{% url 'claim_update' claim.pk 'decline' %}" data-submit-once data-confirm="Decline {{ claim.claimant.username }}'s claim?">
+
+                            <form method="post"
+                                  action="{% url 'claim_update' claim.pk 'decline' %}"
+                                  data-submit-once
+                                  data-confirm="Decline {{ claim.claimant.username }}'s claim?">
                                 {% csrf_token %}
-                                <button class="btn btn--ghost btn--sm" type="submit">Decline</button>
+                                <button class="btn btn--ghost btn--sm" type="submit">
+                                    Decline
+                                </button>
                             </form>
+
                             {% elif claim.status == 'approved' %}
-                            <form method="post" action="{% url 'claim_update' claim.pk 'complete' %}" data-submit-once data-confirm="Confirm that {{ claim.claimant.username }} has collected '{{ item.title }}'?">
+                            <form method="post"
+                                  action="{% url 'claim_update' claim.pk 'complete' %}"
+                                  data-submit-once
+                                  data-confirm="Confirm that {{ claim.claimant.username }} has collected '{{ item.title }}'?">
                                 {% csrf_token %}
-                                <button class="btn btn--primary btn--sm" type="submit">{% include 'partials/icon.html' with name='package' %}Mark as passed on</button>
+                                <button class="btn btn--primary btn--sm" type="submit">
+                                    {% include 'partials/icon.html' with name='package' %}
+                                    Mark as passed on
+                                </button>
                             </form>
-                            <form method="post" action="{% url 'claim_update' claim.pk 'release' %}" data-submit-once data-confirm="Release the reservation? '{{ item.title }}' becomes available to everyone again.">
+
+                            <form method="post"
+                                  action="{% url 'claim_update' claim.pk 'release' %}"
+                                  data-submit-once
+                                  data-confirm="Release the reservation? '{{ item.title }}' becomes available to everyone again.">
                                 {% csrf_token %}
-                                <button class="btn btn--ghost btn--sm" type="submit">Release reservation</button>
+                                <button class="btn btn--ghost btn--sm" type="submit">
+                                    Release reservation
+                                </button>
                             </form>
                             {% endif %}
 
                             {% if claim.status != 'cancelled' %}
-                            <form method="post" action="{% url 'chat:start_claimant_conversation' claim.pk %}" data-submit-once>
+                            <form method="post"
+                                  action="{% url 'chat:start_claimant_conversation' claim.pk %}"
+                                  data-submit-once>
                                 {% csrf_token %}
-                                <button class="btn btn--quiet btn--sm" type="submit">{% include 'partials/icon.html' with name='chat' %}Message</button>
+                                <button class="btn btn--quiet btn--sm" type="submit">
+                                    {% include 'partials/icon.html' with name='chat' %}
+                                    Message
+                                </button>
                             </form>
                             {% endif %}
                         </div>
@@ -119,23 +231,31 @@
                 </ul>
             </details>
             {% else %}
-            <p class="post-card__empty">No claims yet. You'll see them here as soon as someone asks for it.</p>
+            <p class="post-card__empty">
+                No claims yet. You'll see them here as soon as someone asks for it.
+            </p>
             {% endif %}
         </article>
         {% endfor %}
     </div>
 
     {% include 'partials/pagination.html' with page_obj=page_obj label='My posts pages' %}
+
     {% else %}
     <div class="empty-state">
-        <div class="empty-state__art" aria-hidden="true">{% include 'partials/category_art.html' with category='other' %}</div>
+        <div class="empty-state__art" aria-hidden="true">
+            {% include 'partials/category_art.html' with category='other' %}
+        </div>
+
         <h2 class="empty-state__title">You haven't posted anything yet</h2>
         <p>Give your unused items a new home by posting your first passdown.</p>
+
         <div class="empty-state__actions">
-            <a class="btn btn--primary" href="{% url 'item_create' %}">Post an item</a>
+            <a class="btn btn--primary" href="{% url 'item_create' %}">
+                Post an item
+            </a>
         </div>
     </div>
     {% endif %}
 </section>
 {% endblock %}
-```

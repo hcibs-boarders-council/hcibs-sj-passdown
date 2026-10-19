@@ -29,6 +29,10 @@
         <a class="nav-pill{% if current == 'item_create' %} is-active{% endif %}" href="{% url 'item_create' %}"{% if current == 'item_create' %} aria-current="page"{% endif %}>Post an Item</a>
 
         <a class="nav-pill{% if current == 'my_posts' %} is-active{% endif %}" href="{% url 'my_posts' %}"{% if current == 'my_posts' %} aria-current="page"{% endif %}>My Posts</a>
+
+        {% if is_listing_moderator %}
+        <a class="nav-pill{% if current == 'moderation_dashboard' %} is-active{% endif %}" href="{% url 'moderation_dashboard' %}"{% if current == 'moderation_dashboard' %} aria-current="page"{% endif %}>Admin</a>
+        {% endif %}
         {% endif %}
 
         <a class="nav-pill{% if current == 'our_vision' %} is-active{% endif %}" href="{% url 'our_vision' %}"{% if current == 'our_vision' %} aria-current="page"{% endif %}>Our Vision</a>

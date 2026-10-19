@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -20,6 +20,17 @@ from .models import Claim, Item, ItemPhoto
 HOME_PAGE_SIZE = 24
 MAX_SEARCH_LENGTH = 100
 CLAIM_ACTIONS = {'approve', 'decline', 'cancel', 'complete', 'release'}
+MODERATOR_GROUP = 'Listing Moderators'
+
+
+def is_listing_moderator(user):
+    return (
+        user.is_authenticated
+        and (
+            user.is_superuser
+            or user.groups.filter(name=MODERATOR_GROUP).exists()
+        )
+    )
 
 
 def _selected_categories(request):
@@ -48,16 +59,32 @@ def _photo_prefetch():
 
 
 def _items_visible_to(user):
-    """Available items, plus any item the user owns, has claimed, or chats about.
-
-    Reserved and passed-on items stay hidden from everyone else (404), but the
-    people involved in the handover can still open them.
-    """
-    return Item.objects.filter(
+    """Show approved items to relevant users and all own items to their owner."""
+    approved_items = Q(
+        moderation_status=Item.ModerationStatus.APPROVED,
+    ) & (
         Q(status=Item.Status.AVAILABLE)
         | Q(owner=user)
-        | Q(Exists(Claim.objects.filter(item=OuterRef('pk'), claimant=user)))
-        | Q(Exists(Conversation.objects.filter(item=OuterRef('pk'), requester=user)))
+        | Q(
+            Exists(
+                Claim.objects.filter(
+                    item=OuterRef('pk'),
+                    claimant=user,
+                )
+            )
+        )
+        | Q(
+            Exists(
+                Conversation.objects.filter(
+                    item=OuterRef('pk'),
+                    requester=user,
+                )
+            )
+        )
+    )
+
+    return Item.objects.filter(
+        approved_items | Q(owner=user),
     )
 
 
@@ -80,7 +107,10 @@ def home(request):
 
     items = (
         Item.objects
-        .filter(status=Item.Status.AVAILABLE)
+        .filter(
+            status=Item.Status.AVAILABLE,
+            moderation_status=Item.ModerationStatus.APPROVED,
+        )
         .select_related('owner')
         .prefetch_related(_photo_prefetch())
         .order_by('-created_at')
@@ -145,6 +175,82 @@ def home(request):
         },
     )
 
+@login_required(login_url='login')
+@user_passes_test(is_listing_moderator, login_url='home')
+@require_http_methods(['GET'])
+def moderation_dashboard(request):
+    pending_items = (
+        Item.objects
+        .filter(moderation_status=Item.ModerationStatus.PENDING)
+        .select_related('owner')
+        .prefetch_related(_photo_prefetch())
+        .order_by('created_at')
+    )
+
+    return render(
+        request,
+        'listings/moderation_dashboard.html',
+        {'items': pending_items},
+    )
+
+@login_required(login_url='login')
+@user_passes_test(is_listing_moderator, login_url='home')
+@require_http_methods(['POST'])
+def moderation_approve(request, pk):
+    item = get_object_or_404(
+        Item,
+        pk=pk,
+        moderation_status=Item.ModerationStatus.PENDING,
+    )
+
+    item.moderation_status = Item.ModerationStatus.APPROVED
+    item.moderation_reviewed_at = timezone.now()
+    item.moderation_reviewed_by = request.user
+    item.moderation_rejection_reason = ''
+    item.save(update_fields=[
+        'moderation_status',
+        'moderation_reviewed_at',
+        'moderation_reviewed_by',
+        'moderation_rejection_reason',
+    ])
+
+    messages.success(request, f'"{item.title}" has been approved.')
+    return redirect('moderation_dashboard')
+
+@login_required(login_url='login')
+@user_passes_test(is_listing_moderator, login_url='home')
+@require_http_methods(['POST'])
+def moderation_reject(request, pk):
+    item = get_object_or_404(
+        Item,
+        pk=pk,
+        moderation_status=Item.ModerationStatus.PENDING,
+    )
+
+    reason = request.POST.get('reason', '').strip()
+
+    if not reason:
+        messages.error(request, 'Please provide a reason for rejecting this listing.')
+        return redirect('moderation_dashboard')
+
+    if len(reason) > 500:
+        messages.error(request, 'The rejection reason must be 500 characters or fewer.')
+        return redirect('moderation_dashboard')
+
+    item.moderation_status = Item.ModerationStatus.REJECTED
+    item.moderation_reviewed_at = timezone.now()
+    item.moderation_reviewed_by = request.user
+    item.moderation_rejection_reason = reason
+    item.save(update_fields=[
+        'moderation_status',
+        'moderation_reviewed_at',
+        'moderation_reviewed_by',
+        'moderation_rejection_reason',
+    ])
+
+    messages.success(request, f'"{item.title}" has been rejected.')
+    return redirect('moderation_dashboard')
+
 
 @login_required(login_url='login')
 @require_http_methods(['GET', 'POST'])
@@ -155,6 +261,10 @@ def create_item(request):
             with transaction.atomic():
                 item = form.save(commit=False)
                 item.owner = request.user
+                item.moderation_status = Item.ModerationStatus.PENDING
+                item.moderation_reviewed_at = None
+                item.moderation_reviewed_by = None
+                item.moderation_rejection_reason = ''
                 item.save()
 
                 for position, photo in enumerate(form.cleaned_data['photos']):
@@ -163,15 +273,18 @@ def create_item(request):
                         image=photo,
                         position=position,
                     )
+
             messages.success(
                 request,
-                'Your item is live! Juniors can now find and claim it.',
+                'Your post has been submitted for review. '
+                'It will appear on the website after a moderator approves it.',
             )
-            return redirect('item_detail', pk=item.pk)
+            return redirect('my_posts')
     else:
         form = ItemForm()
 
     return render(request, 'listings/item_form.html', {'form': form})
+
 
 
 def _render_item_detail(request, item, claim_form=None):
@@ -255,9 +368,11 @@ def item_detail(request, pk):
 @require_http_methods(['POST'])
 def create_claim(request, pk):
     item = get_object_or_404(
-        Item.objects.select_related('owner'),
-        pk=pk,
-    )
+    Item.objects.filter(
+        moderation_status=Item.ModerationStatus.APPROVED,
+    ).select_related('owner'),
+    pk=pk,
+)
 
     if item.owner_id == request.user.id:
         messages.error(request, 'You cannot claim your own item.')
@@ -278,9 +393,18 @@ def create_claim(request, pk):
         )
         return _render_item_detail(request, item, claim_form=form)
 
+
     with transaction.atomic():
         # Lock the item first so concurrent claim requests are serialised.
         item = Item.objects.select_for_update().get(pk=item.pk)
+
+        if item.moderation_status != Item.ModerationStatus.APPROVED:
+            messages.error(
+                request,
+                'This item is not available for claiming.',
+            )
+            return redirect('home')
+
 
         if item.status != Item.Status.AVAILABLE:
             messages.error(request, 'This item is no longer available to claim.')

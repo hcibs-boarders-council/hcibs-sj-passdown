@@ -1,3 +1,4 @@
+
 /* ==========================================================================
    Account pages — Account Details, My Posts, My Claims.
    Uses the shared tokens from base.css (no page-local colour values).
@@ -165,6 +166,79 @@
     border-top: 1px solid var(--paper-2);
 }
 
+/* Delete post ------------------------------------------------------------ */
+
+.post-card__delete form {
+    margin: 0;
+}
+
+.post-card__delete button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.post-card__delete button .icon {
+    width: 16px;
+    height: 16px;
+    flex: none;
+}
+
+/* Rejected listing notice on My Posts ------------------------------------ */
+
+.post-rejection-notice {
+    display: grid;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 14px 16px;
+    border: 1px solid #e9b8b8;
+    border-radius: 12px;
+    background: #fff3f2;
+}
+
+.post-rejection-notice__heading {
+    margin: 0;
+    color: #a52f2f;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.post-rejection-notice__description {
+    margin: 0;
+    color: #744242;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.post-rejection-notice__reason {
+    padding-top: 10px;
+    border-top: 1px solid #e9caca;
+}
+
+.post-rejection-notice__reason strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #842727;
+    font-size: 13px;
+}
+
+.post-rejection-notice__reason p {
+    margin: 0;
+    color: #593535;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+}
+
+.post-rejection-notice__fallback {
+    margin: 0;
+    color: #744242;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 /* Claims on My Posts ----------------------------------------------------- */
 
 .claims {
@@ -276,6 +350,10 @@
 
     .account-card__title {
         font-size: 18px;
+    }
+
+    .post-rejection-notice {
+        padding: 12px;
     }
 }
 

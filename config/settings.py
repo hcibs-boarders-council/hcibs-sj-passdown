@@ -112,7 +112,6 @@ CLOUDINARY_STORAGE = {
 
 
 # Installed applications
-# Keep Django's staticfiles app before Cloudinary Storage.
 
 INSTALLED_APPS = [
     "daphne",
@@ -158,6 +157,9 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "chat.context_processors.chat_unread_count",
+
+                # Moderator dashboard/navbar context
+                "listings.context_processors.moderation_context",
             ],
         },
     },
@@ -212,6 +214,7 @@ CHANNEL_LAYERS = {
 
 
 # Password validation
+# Four distinct validators; CommonPasswordValidator appears once.
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -292,6 +295,7 @@ CSRF_COOKIE_SECURE = env_bool(
 
 
 # Email
+# Preserved from your existing configuration.
 
 MAILERS = {
     "default": {
