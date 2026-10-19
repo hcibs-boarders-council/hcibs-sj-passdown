@@ -32,3 +32,4 @@ firebase-admin>=6.5.0
 whitenoise>=6.9.0,<7.0
 cloudinary==1.46.3
 django-cloudinary-storage==0.3.0
+firebase-admin

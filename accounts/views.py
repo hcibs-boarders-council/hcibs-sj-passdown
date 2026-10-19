@@ -1,4 +1,3 @@
-
 import json
 import secrets
 from datetime import timedelta
@@ -39,7 +38,11 @@ from firebase_admin import auth as firebase_auth
 
 from .firebase_admin import get_firebase_app
 from .forms import AccountDetailsForm
-from .models import EmailVerification, FirebaseAccount
+from .models import (
+    EmailVerification,
+    FirebaseAccount,
+    PushNotificationToken,
+)
 from chat.models import Conversation
 from listings.models import Claim, Item, ItemPhoto
 
@@ -555,7 +558,6 @@ def account_detail(request):
     )
 
 
-# Claims needing a decision first, then the active reservation, then history.
 CLAIM_STATUS_RANK = Case(
     When(status=Claim.Status.PENDING, then=Value(0)),
     When(status=Claim.Status.APPROVED, then=Value(1)),
@@ -637,3 +639,53 @@ def my_claims(request):
         'accounts/my_claims.html',
         {'page_obj': page},
     )
+
+
+@login_required(login_url='login')
+@require_POST
+def save_push_notification_token(request):
+    """Save the current user's Firebase Cloud Messaging device token."""
+    if not request.content_type or not request.content_type.startswith(
+        'application/json'
+    ):
+        return JsonResponse(
+            {'ok': False, 'error': 'Expected a JSON request.'},
+            status=400,
+        )
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse(
+            {'ok': False, 'error': 'Invalid request.'},
+            status=400,
+        )
+
+    if not isinstance(data, dict):
+        return JsonResponse(
+            {'ok': False, 'error': 'Invalid request.'},
+            status=400,
+        )
+
+    token = data.get('token')
+
+    if not isinstance(token, str):
+        return JsonResponse(
+            {'ok': False, 'error': 'Missing notification token.'},
+            status=400,
+        )
+
+    token = token.strip()
+
+    if not token or len(token) > 4096:
+        return JsonResponse(
+            {'ok': False, 'error': 'Invalid notification token.'},
+            status=400,
+        )
+
+    PushNotificationToken.objects.update_or_create(
+        token=token,
+        defaults={'user': request.user},
+    )
+
+    return JsonResponse({'ok': True})

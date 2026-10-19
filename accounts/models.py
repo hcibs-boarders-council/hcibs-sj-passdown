@@ -1,4 +1,3 @@
-
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -20,8 +19,8 @@ class EmailVerification(models.Model):
 
     def __str__(self):
         return f'Email verification for {self.user.username}'
-    
-    
+
+
 class FirebaseAccount(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -34,3 +33,16 @@ class FirebaseAccount(models.Model):
     def __str__(self):
         return f'Firebase account for {self.user.username}'
 
+
+class PushNotificationToken(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='push_notification_tokens',
+    )
+    token = models.TextField(unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'Push notification token for {self.user.username}'

@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
+from .notifications import send_claim_push_notification
 
 from chat.models import Conversation
 
@@ -364,38 +365,46 @@ def item_detail(request, pk):
     return _render_item_detail(request, item)
 
 
+
 @login_required(login_url='login')
 @require_http_methods(['POST'])
 def create_claim(request, pk):
     item = get_object_or_404(
-    Item.objects.filter(
-        moderation_status=Item.ModerationStatus.APPROVED,
-    ).select_related('owner'),
-    pk=pk,
-)
+        Item.objects.filter(
+            moderation_status=Item.ModerationStatus.APPROVED,
+        ).select_related('owner'),
+        pk=pk,
+    )
 
     if item.owner_id == request.user.id:
         messages.error(request, 'You cannot claim your own item.')
         return redirect('item_detail', pk=item.pk)
 
     if item.status != Item.Status.AVAILABLE:
-        messages.error(request, 'This item is no longer available to claim.')
+        messages.error(
+            request,
+            'This item is no longer available to claim.',
+        )
         return redirect('home')
 
     form = ClaimForm(request.POST)
+
     if not form.is_valid():
-        # Show the errors next to the note the student typed instead of losing it.
+        # Keep the item details and show validation errors beside the claim form.
         item = (
             Item.objects
             .select_related('owner')
             .prefetch_related(_photo_prefetch())
             .get(pk=item.pk)
         )
-        return _render_item_detail(request, item, claim_form=form)
-
+        return _render_item_detail(
+            request,
+            item,
+            claim_form=form,
+        )
 
     with transaction.atomic():
-        # Lock the item first so concurrent claim requests are serialised.
+        # Lock the item so concurrent claim requests are serialised.
         item = Item.objects.select_for_update().get(pk=item.pk)
 
         if item.moderation_status != Item.ModerationStatus.APPROVED:
@@ -405,9 +414,11 @@ def create_claim(request, pk):
             )
             return redirect('home')
 
-
         if item.status != Item.Status.AVAILABLE:
-            messages.error(request, 'This item is no longer available to claim.')
+            messages.error(
+                request,
+                'This item is no longer available to claim.',
+            )
             return redirect('home')
 
         # Check the latest claim state after acquiring the lock.
@@ -416,11 +427,18 @@ def create_claim(request, pk):
             claimant=request.user,
         ).first()
 
-        if existing_claim and existing_claim.status != Claim.Status.CANCELLED:
-            messages.info(request, 'You already have a claim for this item.')
+        if (
+            existing_claim
+            and existing_claim.status != Claim.Status.CANCELLED
+        ):
+            messages.info(
+                request,
+                'You already have a claim for this item.',
+            )
             return redirect('my_claims')
 
         if existing_claim:
+            # Reuse a previously cancelled claim.
             claim = existing_claim
             claim.note = form.cleaned_data['note']
             claim.status = Claim.Status.PENDING
@@ -438,8 +456,19 @@ def create_claim(request, pk):
 
         claim.save()
 
-    messages.success(request, 'Your claim was sent to the item owner.')
+        # Send the push notification only after the database transaction
+        # successfully commits.
+        transaction.on_commit(
+            lambda item_id=item.pk, claimant_id=request.user.pk:
+                send_claim_push_notification(item_id, claimant_id)
+        )
+
+    messages.success(
+        request,
+        'Your claim was sent to the item owner.',
+    )
     return redirect('my_claims')
+
 
 
 @login_required(login_url='login')
