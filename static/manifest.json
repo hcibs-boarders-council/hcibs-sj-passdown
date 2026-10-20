@@ -1,0 +1,20 @@
+
+{
+    "id": "/",
+    "name": "SJ Passdown",
+    "short_name": "SJ Passdown",
+    "description": "Free items passed down from HCIBS boarders",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "theme_color": "#f7ecdc",
+    "background_color": "#f7ecdc",
+    "icons": [
+        {
+            "src": "/static/img/logo-128.png",
+            "sizes": "128x128",
+            "type": "image/png"
+        }
+    ]
+}
