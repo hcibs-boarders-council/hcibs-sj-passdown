@@ -373,6 +373,13 @@
                                         {{ item.created_at|date:"d M Y, H:i" }}
                                     </p>
 
+                                    {% if item.leaving_date %}
+                                    <p>
+                                        <strong>Leaving date:</strong>
+                                        <time datetime="{{ item.leaving_date|date:'Y-m-d' }}">{{ item.leaving_date|date:"d M Y" }}</time>
+                                    </p>
+                                    {% endif %}
+
                                     <p>
                                         <strong>Status:</strong>
                                         <span class="moderation-status">

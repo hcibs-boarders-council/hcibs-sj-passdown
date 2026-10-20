@@ -8,10 +8,15 @@ from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-FIREBASE_SERVICE_ACCOUNT_KEY = (
-    BASE_DIR
-    / "secrets"
-    / "hcibs-sj-passdown-firebase-adminsdk-fbsvc-767c25e06f.json"
+FIREBASE_SERVICE_ACCOUNT_KEY = Path(
+    os.environ.get(
+        "FIREBASE_SERVICE_ACCOUNT_KEY",
+        str(
+            BASE_DIR
+            / "secrets"
+            / "hcibs-sj-passdown-firebase-adminsdk-fbsvc-767c25e06f.json"
+        ),
+    )
 )
 
 
@@ -157,8 +162,6 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "chat.context_processors.chat_unread_count",
-
-                # Moderator dashboard/navbar context
                 "listings.context_processors.moderation_context",
             ],
         },
@@ -214,7 +217,6 @@ CHANNEL_LAYERS = {
 
 
 # Password validation
-# Four distinct validators; CommonPasswordValidator appears once.
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -238,7 +240,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": (
             "django.contrib.auth.password_validation."
-            "NumericPasswordValidator"
+            "MinimumLengthValidator"
         ),
     },
 ]
@@ -258,6 +260,10 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
+# Serve the root-level Firebase service worker at:
+# /firebase-messaging-sw.js
+WHITENOISE_ROOT = BASE_DIR
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
@@ -270,11 +276,14 @@ STORAGES = {
         ),
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.StaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
-STATICFILES_STORAGE = "whitenoise.storage.StaticFilesStorage"
+# Compatibility for packages that still read the legacy setting.
+STATICFILES_STORAGE = (
+    "whitenoise.storage.CompressedManifestStaticFilesStorage"
+)
 
 
 # Security / proxy settings
@@ -295,7 +304,6 @@ CSRF_COOKIE_SECURE = env_bool(
 
 
 # Email
-# Preserved from your existing configuration.
 
 MAILERS = {
     "default": {

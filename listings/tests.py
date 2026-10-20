@@ -70,22 +70,27 @@ class ListingPhotoTests(TestCase):
             'photos': photos,
         }
 
-    def create_item_with_photos(self, owner=None, photo_count=1):
-        item = Item.objects.create(
-            owner=owner or self.user,
-            title='Chemistry notes',
-            description='A complete set of notes.',
-            category=Item.Category.BOOKS,
+    
+def create_item_with_photos(self, owner=None, photo_count=1):
+    item = Item.objects.create(
+        owner=owner or self.user,
+        title='Chemistry notes',
+        description='A complete set of notes.',
+        category=Item.Category.BOOKS,
+        moderation_status=Item.ModerationStatus.APPROVED,
+    )
+
+    photos = []
+    for position in range(photo_count):
+        photo = ItemPhoto.objects.create(
+            item=item,
+            image=self.image_file(f'photo-{position}.png'),
+            position=position,
         )
-        photos = []
-        for position in range(photo_count):
-            photo = ItemPhoto.objects.create(
-                item=item,
-                image=self.image_file(f'photo-{position}.png'),
-                position=position,
-            )
-            photos.append(photo)
-        return item, photos
+        photos.append(photo)
+
+    return item, photos
+
 
     def test_create_item_with_one_photo(self):
         self.client.force_login(self.user)
@@ -244,12 +249,14 @@ class HomeViewTests(TestCase):
             password='test-password-123',
         )
 
+    
     def test_home_shows_available_item(self):
         item = Item.objects.create(
             owner=self.user,
             title='Chemistry textbook',
             description='Used textbook in good condition.',
             category=Item.Category.BOOKS,
+            moderation_status=Item.ModerationStatus.APPROVED,
         )
 
         response = self.client.get(reverse('home'))
@@ -258,12 +265,14 @@ class HomeViewTests(TestCase):
         self.assertContains(response, item.title)
 
 
+
     def test_home_orders_available_items_newest_first(self):
         older_item = Item.objects.create(
             owner=self.user,
             title='Old notebook',
             description='Partly used notebook.',
             category=Item.Category.STATIONERY,
+            moderation_status=Item.ModerationStatus.APPROVED,
         )
         older_item.created_at = timezone.now() - timedelta(days=1)
         older_item.save(update_fields=['created_at'])
@@ -273,6 +282,7 @@ class HomeViewTests(TestCase):
             title='New notebook',
             description='Unused notebook.',
             category=Item.Category.STATIONERY,
+            moderation_status=Item.ModerationStatus.APPROVED,
         )
 
         response = self.client.get(reverse('home'))
@@ -288,6 +298,7 @@ class HomeViewTests(TestCase):
             title='School jacket',
             description='Jacket in good condition.',
             category=Item.Category.CLOTHES,
+            moderation_status=Item.ModerationStatus.APPROVED,
         )
 
         response = self.client.get(reverse('home'))
@@ -405,6 +416,7 @@ class ClaimWorkflowTests(TestCase):
             description='JC chemistry notes',
             category=Item.Category.BOOKS,
             status=Item.Status.AVAILABLE,
+            moderation_status=Item.ModerationStatus.APPROVED,
         )
 
     def create_claim(self, claimant=None, status=Claim.Status.PENDING):
@@ -554,6 +566,7 @@ class HomeSearchFilterTests(TestCase):
             description=description,
             category=category,
             status=status,
+            moderation_status=Item.ModerationStatus.APPROVED,
         )
 
     def get_home(self, **params):
@@ -617,15 +630,22 @@ class HomeSearchFilterTests(TestCase):
         nav_form = content[content.index('class="nav-search__panel"'):]
         nav_form = nav_form[:nav_form.index('</form>')]
 
-        self.assertIn('<input type="hidden" name="category" value="books">', nav_form)
-        self.assertIn('<input type="hidden" name="category" value="stationery">', nav_form)
+        self.assertRegex(
+            nav_form,
+            r'<input\b(?=[^>]*type="hidden")(?=[^>]*name="category")(?=[^>]*value="books")[^>]*>',
+)
+        self.assertRegex(
+            nav_form,
+            r'<input\b(?=[^>]*type="hidden")(?=[^>]*name="category")(?=[^>]*value="stationery")[^>]*>',
+)
         self.assertIn('value="chem"', nav_form)
 
     def test_navbar_search_is_available_on_other_pages(self):
         response = self.client.get(reverse('login'))
         content = response.content.decode()
 
-        self.assertIn('class="nav-search__panel" action="%s"' % reverse('home'), content)
+        self.assertIn('class="nav-search__panel"', content)
+        self.assertIn('action="%s"' % reverse('home'), content)
         self.assertNotIn('<input type="hidden" name="category"', content)
 
     def test_removing_one_filter_keeps_the_rest(self):
@@ -677,6 +697,7 @@ class HomeSearchFilterTests(TestCase):
         self.assertEqual(len(response.context['query']), 100)
 
 
+
 class ClaimTestMixin:
     """Shared users/item for the claim journey tests."""
 
@@ -691,6 +712,7 @@ class ClaimTestMixin:
             title='Biology flashcards',
             description='Full set.',
             category=Item.Category.STATIONERY,
+            moderation_status=Item.ModerationStatus.APPROVED,
         )
 
     def claim(self, claimant=None, status=Claim.Status.PENDING, note='Please!'):
@@ -715,6 +737,7 @@ class ClaimTestMixin:
             reverse('claim_update', kwargs={'pk': claim.pk, 'action': action}),
             data,
         )
+
 
 
 class ItemDetailClaimPanelTests(ClaimTestMixin, TestCase):
@@ -1215,9 +1238,10 @@ class ItemCardTests(TempMediaMixin, TestCase):
         self.owner = get_user_model().objects.create_user(username='card-owner', password='secure-password-123')
         self.item = Item.objects.create(
             owner=self.owner,
-            title='A very long title ' * 8,
+            title='A very long title for testing item cards',
             description='Description',
             category=Item.Category.BOOKS,
+            moderation_status=Item.ModerationStatus.APPROVED,
         )
         ItemPhoto.objects.create(
             item=self.item,

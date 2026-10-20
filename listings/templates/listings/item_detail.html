@@ -62,6 +62,7 @@
             <span class="chip">Free</span>
             <span class="status-chip status-chip--{{ item.status }}">{{ item.get_status_display }}</span>
         </div>
+
         <p class="item-detail__category">{{ item.get_category_display }}</p>
         <h1 class="display item-detail__title" id="item-title">{{ item.title }}</h1>
         <p class="item-detail__description">{{ item.description }}</p>
@@ -74,10 +75,22 @@
                     <span>{{ item.owner.username }}{% if is_owner %} (you){% endif %}</span>
                 </dd>
             </div>
+
             <div>
                 <dt>Posted</dt>
-                <dd><time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:"j M Y" }}</time></dd>
+                <dd>
+                    <time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:"j M Y" }}</time>
+                </dd>
             </div>
+
+            {% if item.leaving_date %}
+            <div>
+                <dt>Leaving date</dt>
+                <dd>
+                    <time datetime="{{ item.leaving_date|date:'Y-m-d' }}">{{ item.leaving_date|date:"j M Y" }}</time>
+                </dd>
+            </div>
+            {% endif %}
         </dl>
 
         {% if is_owner %}
@@ -100,6 +113,7 @@
                 <span class="status-chip status-chip--{{ existing_claim.status }}">{{ existing_claim.get_status_display }}</span>
                 <span class="muted">Sent {{ existing_claim.created_at|date:"j M" }}</span>
             </p>
+
             <p class="claim-panel__help">
                 {% if existing_claim.status == 'pending' %}The owner will review your claim and reserve the item for one student.
                 {% elif existing_claim.status == 'approved' %}It's reserved for you! Message the owner to arrange collection.
@@ -107,9 +121,11 @@
                 {% elif existing_claim.status == 'completed' %}You've collected this item — enjoy it!
                 {% endif %}
             </p>
+
             {% if existing_claim.note %}
             <blockquote class="claim-panel__note">{{ existing_claim.note }}</blockquote>
             {% endif %}
+
             {% if existing_claim.is_active %}
             <form method="post" action="{% url 'claim_update' existing_claim.pk 'cancel' %}" data-confirm="Cancel your claim for “{{ item.title }}”?" data-submit-once>
                 {% csrf_token %}
@@ -117,14 +133,17 @@
                 <button class="btn btn--ghost btn--sm" type="submit">Cancel claim</button>
             </form>
             {% endif %}
+
             {% elif can_claim %}
             <h2 class="claim-panel__title" id="claim-panel-title">{% if existing_claim %}Claim it again{% else %}Claim this item{% endif %}</h2>
             <p class="claim-panel__help">It's free. The owner reviews claims and reserves the item for one student.</p>
+
             <form method="post" action="{% url 'claim_create' item.pk %}" class="form-stack" novalidate data-submit-once>
                 {% csrf_token %}
                 {% include 'partials/form_field.html' with field=claim_form.note counter=True %}
                 <button class="btn btn--primary btn--block" type="submit">Send claim</button>
             </form>
+
             {% else %}
             <h2 class="claim-panel__title" id="claim-panel-title">Not open for claims</h2>
             <p class="claim-panel__help">This item has already been {% if item.status == 'reserved' %}reserved for another student{% else %}passed on{% endif %}.</p>

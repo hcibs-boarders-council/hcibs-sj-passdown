@@ -11,11 +11,13 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 from .notifications import send_claim_push_notification
+from django.contrib.auth import get_user_model
 
 from chat.models import Conversation
 
 from .forms import ClaimForm, ItemForm
 from .models import Claim, Item, ItemPhoto
+from .claim_limits import active_claim_count_today, DAILY_CLAIM_LIMIT
 
 
 HOME_PAGE_SIZE = 24
@@ -390,7 +392,6 @@ def create_claim(request, pk):
     form = ClaimForm(request.POST)
 
     if not form.is_valid():
-        # Keep the item details and show validation errors beside the claim form.
         item = (
             Item.objects
             .select_related('owner')
@@ -404,7 +405,12 @@ def create_claim(request, pk):
         )
 
     with transaction.atomic():
-        # Lock the item so concurrent claim requests are serialised.
+        # Lock the boarder's user row to serialize their claim requests.
+        get_user_model().objects.select_for_update().get(
+            pk=request.user.pk,
+        )
+
+        # Lock the item before checking its latest state.
         item = Item.objects.select_for_update().get(pk=item.pk)
 
         if item.moderation_status != Item.ModerationStatus.APPROVED:
@@ -421,7 +427,6 @@ def create_claim(request, pk):
             )
             return redirect('home')
 
-        # Check the latest claim state after acquiring the lock.
         existing_claim = Claim.objects.filter(
             item=item,
             claimant=request.user,
@@ -437,12 +442,27 @@ def create_claim(request, pk):
             )
             return redirect('my_claims')
 
+        # Enforce the daily limit using Singapore calendar-day boundaries.
+        current_claim_count = active_claim_count_today(request.user)
+
+        if current_claim_count >= DAILY_CLAIM_LIMIT:
+            messages.error(
+                request,
+                (
+                    f'You can only make {DAILY_CLAIM_LIMIT} active claims '
+                    'per Singapore calendar day. Cancel an existing claim '
+                    'to free up a slot.'
+                ),
+            )
+            return redirect('my_claims')
+
         if existing_claim:
-            # Reuse a previously cancelled claim.
+            # Reactivate the cancelled claim as a new claim today.
             claim = existing_claim
             claim.note = form.cleaned_data['note']
             claim.status = Claim.Status.PENDING
             claim.decided_at = None
+            claim.created_at = timezone.now()
         else:
             claim = form.save(commit=False)
             claim.item = item
@@ -456,8 +476,7 @@ def create_claim(request, pk):
 
         claim.save()
 
-        # Send the push notification only after the database transaction
-        # successfully commits.
+        # Send the notification only after the transaction commits.
         transaction.on_commit(
             lambda item_id=item.pk, claimant_id=request.user.pk:
                 send_claim_push_notification(item_id, claimant_id)
@@ -478,23 +497,36 @@ def update_claim(request, pk, action):
         messages.error(request, 'Unknown claim action.')
         return redirect('home')
 
-    item_id = Claim.objects.filter(pk=pk).values_list('item_id', flat=True).first()
+    item_id = (
+        Claim.objects
+        .filter(pk=pk)
+        .values_list('item_id', flat=True)
+        .first()
+    )
+
     if item_id is None:
         raise Http404('Claim not found.')
 
     fallback = 'my_claims' if action == 'cancel' else 'my_posts'
 
+    
     with transaction.atomic():
-        # Lock the item before the claim — the same order create_claim uses —
-        # so concurrent approve/decline/cancel requests on one item queue up
-        # instead of deadlocking.
+        # Lock the acting user's row first. This coordinates cancellation
+        # with new claims and keeps the lock order consistent.
+        get_user_model().objects.select_for_update().get(
+            pk=request.user.pk,
+        )
+
+
         item = Item.objects.select_for_update().get(pk=item_id)
+
         claim = (
             Claim.objects
             .select_for_update(of=('self',))
             .select_related('claimant')
             .get(pk=pk)
         )
+
         claim.item = item
         now = timezone.now()
 
@@ -504,9 +536,16 @@ def update_claim(request, pk, action):
                 return redirect(fallback)
 
             was_approved = claim.status == Claim.Status.APPROVED
+
             claim.status = Claim.Status.CANCELLED
             claim.decided_at = now
-            claim.save(update_fields=['status', 'decided_at', 'updated_at'])
+            claim.save(
+                update_fields=[
+                    'status',
+                    'decided_at',
+                    'updated_at',
+                ],
+            )
 
             if was_approved and item.status == Item.Status.RESERVED:
                 item.status = Item.Status.AVAILABLE
@@ -519,13 +558,23 @@ def update_claim(request, pk, action):
             if not claim.can_approve(request.user):
                 messages.error(request, 'You cannot approve this claim.')
                 return redirect(fallback)
+
             if item.status != Item.Status.AVAILABLE:
-                messages.error(request, 'This item is no longer available.')
+                messages.error(
+                    request,
+                    'This item is no longer available.',
+                )
                 return redirect(fallback)
 
             claim.status = Claim.Status.APPROVED
             claim.decided_at = now
-            claim.save(update_fields=['status', 'decided_at', 'updated_at'])
+            claim.save(
+                update_fields=[
+                    'status',
+                    'decided_at',
+                    'updated_at',
+                ],
+            )
 
             item.status = Item.Status.RESERVED
             item.save(update_fields=['status', 'updated_at'])
@@ -538,9 +587,13 @@ def update_claim(request, pk, action):
                 decided_at=now,
                 updated_at=now,
             )
+
             messages.success(
                 request,
-                f'Claim approved and item reserved for {claim.claimant.get_username()}.',
+                (
+                    'Claim approved and item reserved for '
+                    f'{claim.claimant.get_username()}.'
+                ),
             )
             return redirect(_safe_next(request, fallback))
 
@@ -551,39 +604,69 @@ def update_claim(request, pk, action):
 
             claim.status = Claim.Status.DECLINED
             claim.decided_at = now
-            claim.save(update_fields=['status', 'decided_at', 'updated_at'])
+            claim.save(
+                update_fields=[
+                    'status',
+                    'decided_at',
+                    'updated_at',
+                ],
+            )
+
             messages.success(request, 'Claim declined.')
             return redirect(_safe_next(request, fallback))
 
         if action == 'release':
             if not claim.can_release(request.user):
-                messages.error(request, 'You cannot release this reservation.')
+                messages.error(
+                    request,
+                    'You cannot release this reservation.',
+                )
                 return redirect(fallback)
 
             claim.status = Claim.Status.DECLINED
             claim.decided_at = now
-            claim.save(update_fields=['status', 'decided_at', 'updated_at'])
+            claim.save(
+                update_fields=[
+                    'status',
+                    'decided_at',
+                    'updated_at',
+                ],
+            )
 
             if item.status == Item.Status.RESERVED:
                 item.status = Item.Status.AVAILABLE
                 item.save(update_fields=['status', 'updated_at'])
 
-            messages.success(request, 'Reservation released. The item is available again.')
+            messages.success(
+                request,
+                'Reservation released. The item is available again.',
+            )
             return redirect(_safe_next(request, fallback))
 
         # action == 'complete'
         if not claim.can_mark_completed(request.user):
-            messages.error(request, 'You cannot complete this claim.')
+            messages.error(
+                request,
+                'You cannot complete this claim.',
+            )
             return redirect(fallback)
 
         claim.status = Claim.Status.COMPLETED
         claim.decided_at = now
-        claim.save(update_fields=['status', 'decided_at', 'updated_at'])
+        claim.save(
+            update_fields=[
+                'status',
+                'decided_at',
+                'updated_at',
+            ],
+        )
 
         item.status = Item.Status.PASSED_ON
         item.save(update_fields=['status', 'updated_at'])
+
         messages.success(request, 'Item marked as passed on.')
         return redirect(_safe_next(request, fallback))
+
 
 @login_required(login_url='login')
 @require_http_methods(['POST'])
@@ -605,4 +688,5 @@ def delete_item(request, pk):
 
     messages.success(request, f'Your post "{title}" was deleted.')
     return redirect('my_posts')
+
 

@@ -20,7 +20,7 @@ info pills.
         <div class="vision-hero__copy">
             <p class="eyebrow">{% include 'partials/icon.html' with name='sparkle' %} Our Vision</p>
             <h1 class="display vision-hero__title" id="vision-title">Good things deserve a second term</h1>
-            <p class="vision-hero__lead">Every year, HCIBS seniors move on and leave behind textbooks, uniforms, stationery and everyday essentials that the juniors arriving next still need. SJ Passdown makes passing them on easy: free, and from one student to another.</p>
+            <p class="vision-hero__lead">Every year, HCIBS seniors move on and leave behind textbooks, uniforms, stationery and everyday essentials that the juniors need. SJ Passdown makes passing them on easy: free, and from one boarder to another.</p>
             <div class="vision-hero__actions">
                 <a class="btn btn--primary" href="{% url 'home' %}">Browse passdowns</a>
                 <a class="btn btn--ghost" href="{% if user.is_authenticated %}{% url 'item_create' %}{% else %}{% url 'login' %}?next={% url 'item_create' %}{% endif %}">Post an item</a>
@@ -35,8 +35,8 @@ info pills.
         <h2 class="section-title" id="values-title">What we believe</h2>
         <ul class="vision-values" role="list">
             <li class="vision-value">
-                <h3 class="vision-value__title">Less waste</h3>
-                <p>Useful things shouldn't end up in the bin when a senior moves out. Passing them down keeps them in use for another year.</p>
+                <h3 class="vision-value__title">Sustainability</h3>
+                <p>Useful things shouldn't end up in the bin when a senior moves out. Passing them down keeps them in use for another year and reduces waste.</p>
             </li>
             <li class="vision-value vision-value--blue">
                 <h3 class="vision-value__title">Free for every junior</h3>
@@ -44,7 +44,7 @@ info pills.
             </li>
             <li class="vision-value vision-value--yellow">
                 <h3 class="vision-value__title">Seniors looking out for juniors</h3>
-                <p>A small handover is a big welcome. Every passdown is a senior helping someone new settle in.</p>
+                <p>A small handover is a big welcome. Every passdown is a senior helping a junior settle in.</p>
             </li>
         </ul>
     </section>
@@ -54,11 +54,11 @@ info pills.
         <ol class="vision-steps" role="list">
             <li class="vision-step">
                 <h3 class="vision-step__title">Post</h3>
-                <p>Add a few photos and an honest description of something you no longer need.</p>
+                <p>Add a few photos and a clear description of something you no longer need.</p>
             </li>
             <li class="vision-step">
                 <h3 class="vision-step__title">Claim</h3>
-                <p>Juniors browse or search the listings and send a claim with a short note.</p>
+                <p>Juniors claim or browse through the listings and send a claim with a short note.</p>
             </li>
             <li class="vision-step">
                 <h3 class="vision-step__title">Choose</h3>
@@ -76,8 +76,8 @@ info pills.
         <ul class="vision-guidelines" role="list">
             <li><strong>Keep it private.</strong> Don't post or share private information about yourself or other people.</li>
             <li><strong>Keep it kind.</strong> No profanities, offensive material or other inappropriate content.</li>
-            <li><strong>Describe it honestly.</strong> Mention wear, missing parts or notes inside, so there are no surprises at handover.</li>
-            <li><strong>Follow through.</strong> If you claim something, collect it, or cancel your claim so someone else can have it.</li>
+            <li><strong>Describe it clearly.</strong> Mention wear, missing parts or notes inside, so there are no surprises at handover.</li>
+            <li><strong>Follow through.</strong> If you claimed something, collect it, or cancel your claim so someone else can have it.</li>
         </ul>
     </section>
 </article>
