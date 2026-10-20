@@ -1,21 +1,97 @@
+
 /* SJ Passdown — Post Item form.
    Progressive enhancement only: without JavaScript the native file input and
    the server's validation still work, and the server re-checks everything.
 
+   - Leaving date: automatically inserts slashes in DD/MM/YYYY format.
    - Photo picker: previews with file name and size, the first photo marked as
      the cover, remove buttons, "add more" that keeps earlier picks, drag and
      drop, and early warnings for type, size and count.
    - A quick check for empty required fields before uploading, so a missing
      title doesn't cost the student their chosen photos (browsers clear file
      inputs when the server sends the form back with errors). */
+
 (function () {
     "use strict";
 
     var form = document.querySelector("[data-item-form]");
     if (!form) return;
 
+    // Leaving date: automatically format digits as DD/MM/YYYY.
+    // For example, 25102026 becomes 25/10/2026.
+    var leavingDate = form.querySelector('input[name="leaving_date"]');
+
+    if (leavingDate) {
+        leavingDate.addEventListener("input", function () {
+            var originalValue = leavingDate.value;
+            var originalPosition = leavingDate.selectionStart;
+
+            if (originalPosition === null) {
+                originalPosition = originalValue.length;
+            }
+
+            // Count the digits before the cursor so editing in the middle
+            // of the date doesn't unnecessarily move the cursor to the end.
+            var digitsBeforeCursor = originalValue
+                .slice(0, originalPosition)
+                .replace(/\D/g, "").length;
+
+            // Keep digits only, with a maximum of eight: DDMMYYYY.
+            var digits = originalValue.replace(/\D/g, "").slice(0, 8);
+            var formatted = digits;
+
+            if (digits.length > 4) {
+                formatted =
+                    digits.slice(0, 2) + "/" +
+                    digits.slice(2, 4) + "/" +
+                    digits.slice(4);
+            } else if (digits.length > 2) {
+                formatted =
+                    digits.slice(0, 2) + "/" +
+                    digits.slice(2);
+            }
+
+            leavingDate.value = formatted;
+
+            // Restore the cursor near the same digit after inserting slashes.
+            var newPosition = 0;
+            var digitsSeen = 0;
+
+            while (newPosition < formatted.length &&
+                   digitsSeen < digitsBeforeCursor) {
+                if (/\d/.test(formatted.charAt(newPosition))) {
+                    digitsSeen++;
+                }
+                newPosition++;
+            }
+
+            // When the cursor reaches a day or month boundary, place it
+            // after the automatically inserted slash.
+            if (
+                digitsBeforeCursor > 0 &&
+                (digitsBeforeCursor === 2 || digitsBeforeCursor === 4) &&
+                formatted.charAt(newPosition) === "/"
+            ) {
+                newPosition++;
+            }
+
+            try {
+                leavingDate.setSelectionRange(newPosition, newPosition);
+            } catch (error) {
+                // Some browsers may not support selection ranges here.
+            }
+
+            // Clear any previous client-side error once a date is entered.
+            if (leavingDate.value.trim()) {
+                clearError(leavingDate);
+            }
+        });
+    }
+
     var picker = form.querySelector("[data-photo-picker]");
     var input = picker && picker.querySelector("input[type='file']");
+
+    // Date formatting above should work even if the photo picker is absent.
     if (!picker || !input) return;
 
     var drop = picker.querySelector("[data-photo-drop]");
@@ -86,6 +162,20 @@
         if (!field.querySelector(".errorlist")) {
             field.classList.remove("field--error");
             control.removeAttribute("aria-invalid");
+
+            var errorId = control.id + "_error";
+            var describedBy = (control.getAttribute("aria-describedby") || "")
+                .split(/\s+/)
+                .filter(Boolean)
+                .filter(function (id) {
+                    return id !== errorId;
+                });
+
+            if (describedBy.length) {
+                control.setAttribute("aria-describedby", describedBy.join(" "));
+            } else {
+                control.removeAttribute("aria-describedby");
+            }
         }
     }
 
