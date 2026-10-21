@@ -1,3 +1,4 @@
+
 from django import forms
 from django.core.exceptions import ValidationError
 
@@ -59,16 +60,17 @@ class ItemForm(forms.ModelForm):
     )
 
     leaving_date = forms.DateField(
-        required=False,
+        required=True,
         input_formats=['%d/%m/%Y'],
-        label='Leaving date',
-        help_text='Enter your leaving date in DD/MM/YYYY format.',
+        label='Collect by date',
+        help_text='Enter the date you leave in DD/MM/YYYY format.',
         widget=forms.DateInput(
             format='%d/%m/%Y',
             attrs={
                 'placeholder': 'DD/MM/YYYY',
                 'autocomplete': 'off',
                 'inputmode': 'numeric',
+                'required': 'required',
             },
         ),
     )
@@ -85,7 +87,7 @@ class ItemForm(forms.ModelForm):
             'title': 'Title',
             'description': 'Description',
             'category': 'Category',
-            'leaving_date': 'Leaving date',
+            'leaving_date': 'Collect by date',
         }
         help_texts = {
             'title': (
@@ -95,6 +97,9 @@ class ItemForm(forms.ModelForm):
             'description': (
                 'Condition, size or edition, and anything a junior '
                 'should know before claiming.'
+            ),
+            'leaving_date': (
+                'Enter the date you leave in DD/MM/YYYY format.'
             ),
         }
         error_messages = {
